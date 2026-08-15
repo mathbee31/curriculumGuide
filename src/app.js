@@ -751,6 +751,11 @@ const SG_INDEX_URL = {
   department: `${SG_DATA_BASE}/departments/index.html`,
   subject:    `${SG_DATA_BASE}/subjects/index.html`,
 };
+const SG_SOURCE_HTML = `
+  <footer class="source-attribution sg-source-note" aria-label="자료 출처">
+    출처: 이 자료는 서울진로진학정보센터의 『2022 개정 교육과정 선택과목 안내서』 내용을 토대로 제작했습니다.
+  </footer>
+`;
 
 /** 상대 경로 → 절대 경로 변환 (fake base URL 트릭) */
 function resolveSgUrl(base, rel) {
@@ -831,6 +836,8 @@ async function loadSgPage(sectionView, url) {
     if (!main) throw new Error('<main> 요소 없음');
 
     container.innerHTML = main.innerHTML;
+    container.querySelectorAll('.source-attribution').forEach(el => el.remove());
+    container.insertAdjacentHTML('beforeend', SG_SOURCE_HTML);
 
     // 내부 링크 인터셉트
     container.querySelectorAll('a[href]').forEach(a => {

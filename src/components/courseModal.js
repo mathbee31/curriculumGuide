@@ -5,6 +5,12 @@
 let modalEl = null;
 let overlayEl = null;
 
+const COURSE_SOURCE_HTML = `
+  <footer class="cm-source-attribution" aria-label="과목 소개 출처">
+    출처: 이 과목 소개 자료는 교육부의 『2022 개정 교육과정에 따른 고등학교 과목 안내서』 내용을 토대로 제작했습니다.
+  </footer>
+`;
+
 // ── 초기화 (최초 1회) ─────────────────────
 export function initCourseModal() {
   if (modalEl) return;
@@ -91,7 +97,7 @@ export async function openCourseModal(courseName, area = '') {
       const res = await fetch(`${basePath}data/courses/${filename}`);
       if (!res.ok) continue;
       const html = await res.text();
-      document.getElementById('cmBody').innerHTML = html;
+      document.getElementById('cmBody').innerHTML = html + COURSE_SOURCE_HTML;
       loaded = true;
       break;
     } catch { continue; }
