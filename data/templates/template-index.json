@@ -1,0 +1,72 @@
+[
+  {
+    "fileName": "template-01.xlsx",
+    "source": "data\\2028학년도 계열별 대표 모집단위별 반영과목.xlsx",
+    "suggestedName": "2028학년도 계열별 대표 모집단위별 반영과목-template.xlsx",
+    "sheets": 3,
+    "compatibleFileName": "university-recommendations-series-template.xlsx",
+    "parserTarget": "계열별 대표 모집단위 반영과목 업로드",
+    "preservedRows": "반영과목 시트 1~4행, 데이터 입력은 5행부터"
+  },
+  {
+    "fileName": "template-02.xlsx",
+    "source": "data\\2028학년도 권역별 대학별 권장과목(반영과목).xlsx",
+    "suggestedName": "2028학년도 권역별 대학별 권장과목(반영과목)-template.xlsx",
+    "sheets": 2,
+    "compatibleFileName": "university-recommendations-template.xlsx",
+    "parserTarget": "대학 추천과목 업로드",
+    "preservedRows": "Sheet1 1~4행, 데이터 입력은 5행부터"
+  },
+  {
+    "fileName": "template-03.xlsx",
+    "source": "data\\curriculum-cohorts.xlsx",
+    "suggestedName": "curriculum-cohorts-template.xlsx",
+    "sheets": 4,
+    "compatibleFileName": "curriculum-cohorts-template.xlsx",
+    "parserTarget": "교육과정 업로드",
+    "preservedRows": "○○○○학년도 입학생 3개년 시트 1~4행, 데이터 입력은 5행부터",
+    "preservedColumns": "B 교과(군), C 과목, D 과목유형, E 선택그룹, G 선택과목수, I~N 학기별 학점"
+  },
+  {
+    "fileName": "template-04.xlsx",
+    "source": "data\\jjghs-curriculum.xlsx",
+    "suggestedName": "jjghs-curriculum-template.xlsx",
+    "sheets": 8
+  },
+  {
+    "fileName": "template-05.xlsx",
+    "source": "data\\students-selection.xlsx",
+    "suggestedName": "students-selection-template.xlsx",
+    "sheets": 4
+  },
+  {
+    "fileName": "template-06.xlsx",
+    "source": "data\\university-recommendations-series.xlsx",
+    "suggestedName": "university-recommendations-series-template.xlsx",
+    "sheets": 3
+  },
+  {
+    "fileName": "template-07.xlsx",
+    "source": "data\\university-recommendations.xlsx",
+    "suggestedName": "university-recommendations-template.xlsx",
+    "sheets": 2
+  },
+  {
+    "fileName": "template-08.xlsx",
+    "source": "data\\참고자료1.xlsx",
+    "suggestedName": "참고자료1-template.xlsx",
+    "sheets": 2
+  },
+  {
+    "fileName": "template-09.xlsx",
+    "source": "data\\참고자료2.xlsx",
+    "suggestedName": "참고자료2-template.xlsx",
+    "sheets": 2
+  },
+  {
+    "fileName": "template-10.xlsx",
+    "source": "data\\학생-교사정보.xlsx",
+    "suggestedName": "학생-교사정보-template.xlsx",
+    "sheets": 6
+  }
+]
