@@ -1,0 +1,4010 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>교육과정 탐색</title>
+
+<!-- PWA / 홈 화면 추가 아이콘 -->
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#116149">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="교육과정 탐색">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<!-- Auth handled by Supabase OAuth -->
+
+<style>
+:root {
+  --bg: #f7f8fa;
+  --panel: #ffffff;
+  --ink: #222831;
+  --muted: #667085;
+  --line: #d9dee8;
+  --primary: #116149;
+  --primary-strong: #0b4434;
+  --primary-soft: #e6f4ef;
+  --accent: #d14a3a;
+  --accent-soft: #fdecea;
+  --gold: #a27312;
+  --gold-soft: #fff5d8;
+  --blue: #286fb4;
+  --blue-soft: #e8f2fc;
+  --violet: #7357b8;
+  --violet-soft: #f0ecfb;
+  --shadow: 0 2px 12px rgba(20,30,40,0.07);
+  --radius: 8px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Noto Sans KR", sans-serif;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input, select { font: inherit; cursor: pointer; }
+
+/* ── 세션 확인 중 오버레이 ── */
+#authCheck {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  z-index: 9999;
+}
+#authCheck .auth-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--line);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── 로그인 화면 ── */
+#loginScreen {
+  display: none; /* 세션 확인 전 숨김 — auth.js가 필요 시 flex로 전환 */
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 40px 36px;
+  text-align: center;
+}
+
+.login-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: var(--primary-soft);
+  margin-bottom: 20px;
+}
+
+.login-logo svg {
+  width: 28px;
+  height: 28px;
+  fill: var(--primary);
+}
+
+.login-card h1 {
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: var(--ink);
+  line-height: 1.3;
+  margin-bottom: 6px;
+}
+
+.login-card p {
+  font-size: 0.86rem;
+  color: var(--muted);
+  margin-bottom: 28px;
+}
+
+.login-error {
+  display: none;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  background: var(--accent-soft);
+  border: 1px solid #f5c6c0;
+  border-radius: var(--radius);
+  color: var(--accent);
+  font-size: 0.83rem;
+  font-weight: 700;
+  text-align: left;
+}
+
+.login-error.visible { display: block; }
+
+/* Google 로그인 버튼 중앙 정렬 */
+#googleLoginBtn {
+  display: flex;
+  justify-content: center;
+}
+
+.google-oauth-btn {
+  min-height: 42px;
+  padding: 0 18px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.google-oauth-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.login-notice {
+  margin-top: 20px;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.login-teacher-link {
+  display: block;
+  margin-top: 14px;
+  font-size: 0.78rem;
+  color: var(--primary);
+  text-decoration: none;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+}
+.login-teacher-link:hover { text-decoration: underline; }
+
+/* 비회원 입장 버튼 — 회원가입 링크와 구분되도록 구분선 아래, 더 낮은 우선순위 톤으로 배치 */
+.login-guest-link {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  padding-top: 14px;
+  border: none;
+  border-top: 1px solid var(--line);
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-decoration: none;
+  cursor: pointer;
+  background: none;
+  text-align: center;
+}
+.login-guest-link:hover { color: var(--primary); text-decoration: underline; }
+.login-guest-link:disabled { opacity: 0.6; cursor: default; text-decoration: none; }
+
+/* 이메일 로그인 토글 버튼 */
+.login-toggle-btn {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  padding: 8px 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  background: none;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.login-toggle-btn:hover { color: var(--primary); border-color: var(--primary); }
+
+/* 이메일 로그인 섹션 */
+.email-login-section {
+  margin-top: 12px;
+  padding: 16px;
+  background: #f9f9fb;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--line);
+}
+
+/* 공통 필수 표시 */
+.req { color: var(--accent); }
+
+/* 회원가입 모달: 역할 탭 */
+.su-role-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.su-role-tab {
+  flex: 1;
+  padding: 9px 0;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 0.86rem;
+  color: var(--muted);
+}
+.su-role-tab.active {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+.su-role-section { display: none; }
+.su-role-section.active { display: block; }
+
+/* 최초 관리자 등록 화면 */
+#adminSetupScreen {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+.admin-setup-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.admin-setup-divider::before,
+.admin-setup-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+.as-domain-field {
+  background: var(--bg-soft, #f6f7f9);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+}
+.as-domain-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.as-domain-toggle-label input { width: auto; }
+#asSchoolDomainWrap input {
+  width: 100%;
+  margin-bottom: 6px;
+}
+.as-domain-hint {
+  font-size: 0.74rem;
+  color: var(--muted);
+  line-height: 1.4;
+  margin: 0;
+}
+.su-domain-banner {
+  background: var(--bg-soft, #f6f7f9);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+/* ── 모달 공통 ── */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 10000;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  overflow-y: auto;
+}
+.modal-overlay.open { display: flex; }
+.modal-overlay.visible { display: flex; }
+
+.modal-card {
+  background: var(--panel);
+  border-radius: 16px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+  padding: 36px 32px 28px;
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* 교사 신청: 인증방식 라디오 */
+.tr-auth-options {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.tr-auth-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+.modal-field select {
+  padding: 9px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 0.88rem;
+  background: #fff;
+  outline: none;
+}
+.modal-field select:focus { border-color: var(--primary); }
+
+/* 학생 프로필 모달 그리드 */
+.sp-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 12px;
+}
+.sp-name-field { grid-column: 1 / -1; }
+
+/* 관리자 학생 편집 모달 */
+.admin-edit-modal { max-width: 640px; }
+.admin-edit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 12px;
+}
+.admin-edit-courses {
+  margin-top: 20px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+.admin-edit-courses h3 {
+  font-size: 0.9rem;
+  font-weight: 800;
+  margin-bottom: 12px;
+}
+.ae-group {
+  margin-bottom: 14px;
+  background: #f7f8fc;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.ae-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.ae-group-label { font-size: 0.82rem; font-weight: 700; color: var(--ink); }
+.ae-group-pick { font-size: 0.75rem; color: var(--muted); }
+.ae-course-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ae-course-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 3px 8px;
+}
+.ae-course-item input[type=checkbox] { accent-color: var(--primary); }
+
+/* 관리자 수정/초기화/탈퇴 버튼 */
+.admin-edit-student-btn,
+.admin-reset-student-btn,
+.admin-delete-student-btn {
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.admin-edit-student-btn {
+  background: var(--primary);
+  color: #fff;
+}
+.admin-edit-student-btn:hover { opacity: 0.85; }
+.admin-reset-student-btn {
+  background: var(--gold-soft);
+  color: var(--gold);
+  border: 1px solid #f0dca6;
+}
+.admin-reset-student-btn:hover { background: #ffedb8; }
+.admin-reset-student-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.admin-delete-student-btn {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: 1px solid #f3bdb8;
+}
+.admin-delete-student-btn:hover { background: #fad6d3; }
+.admin-delete-student-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+/* 학생별 선택 현황(관리자) 표 — 관리 열에 버튼 3개가 들어가므로 표 안에서만 살짝 더 좁게 */
+.teacher-admin-student-table .admin-edit-student-btn,
+.teacher-admin-student-table .admin-reset-student-btn,
+.teacher-admin-student-table .admin-delete-student-btn {
+  padding: 4px 7px;
+  font-size: 0.72rem;
+}
+
+/* 관리자 학생 선택기 패널 (과목 선택 탭 상단) */
+.admin-picker-panel {
+  background: linear-gradient(135deg, #fff8e8 0%, #e9f4ef 100%);
+  border: 1.5px solid #c8d9c2;
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-bottom: 18px;
+}
+.admin-picker-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.admin-picker-badge {
+  display: inline-block;
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 3px 9px;
+  border-radius: 20px;
+  white-space: nowrap;
+  letter-spacing: 0.03em;
+}
+.admin-picker-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--primary-strong);
+  white-space: nowrap;
+}
+/* 관리자 학생 선택기 — 학년/학급/번호 드롭다운 + 이름 검색 (2026-08 개편) */
+.admin-picker-filter-bar {
+  display: grid;
+  grid-template-columns: 110px 110px 90px minmax(160px,1fr) auto;
+  gap: 10px;
+  align-items: end;
+  margin-top: 10px;
+}
+.admin-picker-btn {
+  height: 38px;
+  padding: 0 18px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+.admin-picker-btn:hover:not(:disabled) { opacity: 0.85; }
+.admin-picker-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.admin-picker-status {
+  display: block;
+  margin-top: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.admin-picker-status.success { color: var(--primary); }
+.admin-picker-status.error   { color: var(--accent); }
+/* 관리자 학생 선택기 — 검색 결과 동명이인 등 다중 일치 시 선택 팝업 */
+.admin-picker-dup-modal { max-width: 420px; }
+.admin-picker-dup-modal .mpicker-multi-list { max-height: 320px; overflow-y: auto; }
+.modal-card h2 {
+  font-size: 1.1rem;
+  font-weight: 900;
+  margin-bottom: 6px;
+}
+.modal-card p.modal-desc {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-bottom: 22px;
+  line-height: 1.6;
+}
+.modal-field {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 14px;
+}
+.modal-field label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+.modal-field input,
+.modal-field textarea {
+  padding: 9px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 0.88rem;
+  background: #fff;
+  outline: none;
+  resize: vertical;
+}
+.modal-field input:focus,
+.modal-field textarea:focus { border-color: var(--primary); }
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+  justify-content: flex-end;
+}
+.modal-btn {
+  padding: 9px 18px;
+  border-radius: var(--radius);
+  font-size: 0.86rem;
+  font-weight: 800;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+}
+.modal-btn-cancel {
+  background: #fff;
+  border-color: var(--line);
+  color: var(--muted);
+}
+.modal-btn-submit {
+  background: var(--primary);
+  color: #fff;
+}
+.modal-btn-submit:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.modal-msg {
+  font-size: 0.82rem;
+  margin-top: 10px;
+  min-height: 1.2em;
+}
+.modal-msg.error { color: var(--accent); }
+.modal-msg.success { color: var(--primary); font-weight: 700; }
+
+/* ── 앱 메인 화면 (로그인 후) ── */
+#appScreen { display: none; }
+#appScreen.visible { display: block; }
+
+/* ── 상단바 ── */
+.topbar {
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+
+.topbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 14px 18px;
+}
+
+.topbar-left { display: flex; align-items: center; gap: 14px; }
+
+.topbar-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+
+/* ── 수강신청 바로가기 버튼(2026-07 추가) ── */
+.portal-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 800;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+.portal-link-btn:hover { opacity: 0.88; }
+.portal-link-btn[hidden] { display: none; }
+
+.eyebrow {
+  color: var(--primary);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+h1 {
+  margin-top: 2px;
+  color: var(--ink);
+  font-size: clamp(1.1rem, 3vw, 1.6rem);
+  line-height: 1.2;
+  font-weight: 900;
+}
+
+/* ── 사용자 정보 + 로그아웃 ── */
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.user-name {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--ink);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logout-btn {
+  min-height: 32px;
+  padding: 6px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.logout-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* ── 로딩 스피너 ── */
+#loadingScreen {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  flex-direction: column;
+  gap: 16px;
+}
+
+#loadingScreen.visible { display: flex; }
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--line);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.loading-text {
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+/* ── 메인 콘텐츠 영역 (기존 ver5 스타일 유지) ── */
+#mainContent {
+  display: none;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 18px 18px 42px;
+}
+
+#mainContent.visible { display: block; }
+
+/* 임시 안내 */
+.placeholder-notice {
+  padding: 32px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  text-align: center;
+}
+
+.placeholder-notice h2 {
+  font-size: 1.1rem;
+  font-weight: 900;
+  margin-bottom: 8px;
+  color: var(--primary);
+}
+
+.placeholder-notice p {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+/* ── ver5 UI 스타일 (이식) ── */
+/* 탭 네비게이션(#tabNav) 바로 아래에 고정 — top:0을 쓰면 더 높은 z-index인 탭 네비게이션과
+   같은 위치를 다투다가 그 뒤로 가려져, 가려진 영역까지 포함해 계산되는
+   .recommend-table thead의 --sticky-table-top과 어긋나 표 헤더가 화면 중간에 애매하게
+   걸쳐 보이는 문제가 있었다. 실제 높이는 app.js의 syncStickyTableOffset()이 측정해
+   --sticky-controls-top으로 갱신한다(JS 실행 전 기본값은 탭 1줄 높이인 44px). */
+.controls {
+  position: sticky; top: var(--sticky-controls-top, 44px); z-index: 20;
+  background: rgba(247,248,250,0.96);
+  border-bottom: 1px solid var(--line);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.controls-inner {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  max-width: 1240px; margin: 0 auto; padding: 14px 18px; align-items: center;
+}
+/* 필터 영역 접기/펼치기 — 토글 버튼은 항상 보이고, 나머지 필터 묶음(.controls-filter-body)만
+   collapsed 상태에서 숨김. 화면이 좁아 필터가 여러 줄을 차지할 때 접어서 공간을 절약할 수 있게 함. */
+.filter-toggle-btn { flex: 0 0 auto; white-space: nowrap; }
+.controls-filter-body {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+  flex: 1 1 auto; min-width: 0;
+}
+.controls.filters-collapsed .controls-filter-body { display: none; }
+.search-box { position: relative; flex: 1 1 330px; }
+.search-box::before {
+  content: "검색"; position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+  color: var(--muted); font-size: 0.78rem; font-weight: 800;
+}
+/* 학년(입학년도) 선택 박스는 .search-box 클래스를 재사용하지만 검색창이 아니므로
+   가상요소로 표시되는 "검색" 라벨이 겹쳐 보이지 않도록 제거 */
+#cohortGradeBox::before { content: none; }
+/* ⚠ 아래 두 규칙이 필요한 이유: #cohortGradeBox는 JS(app.js)에서 `.hidden = true/false`로
+   노출 여부를 제어하는데(교사·관리자만 노출), 예전에는 이 요소의 인라인 style 속성에
+   display:flex가 직접 박혀 있어서 hidden 어트리뷰트([hidden] { display:none })보다
+   인라인 스타일이 항상 우선 적용되어 학생 계정에서도 학년(입학년도) 선택기가 항상
+   보이는 문제가 있었음. 인라인 style을 제거하고 이 두 규칙으로 대체하면
+   #cohortGradeBox[hidden]의 셀렉터 우선순위(ID+속성)가 #cohortGradeBox(ID만)보다
+   높아 hidden일 때 확실히 display:none이 적용된다. */
+#cohortGradeBox { display: flex; align-items: center; gap: 6px; }
+#cohortGradeBox[hidden] { display: none; }
+.search-box input {
+  width: 100%; min-height: 44px; padding: 10px 14px 10px 50px;
+  border: 1.5px solid var(--line); border-radius: var(--radius);
+  background: var(--panel); color: var(--ink); font-size: 0.95rem;
+}
+.search-box input:focus { outline: 3px solid rgba(17,97,73,0.14); border-color: var(--primary); }
+.filter-groups { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); flex: 1 1 560px; gap: 8px; }
+.filter-groups.example-mode { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.filter-groups.compare-mode { grid-template-columns: repeat(5,minmax(0,1fr)); flex: 1 1 760px; }
+.multi-filter { position: relative; }
+.multi-filter summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-height: 38px; padding: 8px 10px; border: 1.5px solid var(--line);
+  border-radius: var(--radius); background: var(--panel); list-style: none; cursor: pointer;
+}
+.multi-filter summary::-webkit-details-marker { display: none; }
+.multi-filter[open] summary { border-color: var(--primary); background: var(--primary-soft); }
+.multi-filter-label { color: var(--ink); font-size: 0.82rem; font-weight: 800; }
+.filter-summary { color: var(--muted); font-size: 0.74rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.multi-filter-options {
+  position: absolute; left: 0; top: calc(100% + 6px); z-index: 35;
+  width: min(320px,calc(100vw - 36px)); max-height: 280px; overflow: auto;
+  padding: 8px; border: 1px solid #dfe5ee; border-radius: var(--radius);
+  background: var(--panel); box-shadow: var(--shadow-hover);
+}
+.filter-option { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 9px; align-items: start; padding: 8px 9px; border-radius: 7px; cursor: pointer; }
+.filter-option:hover { background: #f7faf8; }
+.filter-option input { margin-top: 2px; accent-color: var(--primary); }
+.filter-option-name { color: var(--ink); font-size: 0.82rem; font-weight: 800; }
+.filter-option-count { color: var(--muted); font-size: 0.72rem; font-weight: 700; }
+.sort-select, .filter-reset-btn {
+  min-height: 38px; padding: 8px 12px; border: 1.5px solid var(--line);
+  border-radius: var(--radius); background: var(--panel); color: var(--ink);
+  font-size: 0.86rem; font-weight: 700;
+}
+.filter-reset-btn { color: var(--muted); }
+.filter-reset-btn:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.container { max-width: 1240px; margin: 0 auto; padding: 18px 18px 42px; }
+.section-head { display: flex; justify-content: space-between; gap: 14px; margin: 20px 0 12px; align-items: flex-end; }
+.section-head h2 { color: var(--ink); font-size: 1.12rem; font-weight: 900; }
+.title-inline { display: inline-flex; align-items: center; gap: 8px; }
+.stats-bar { color: var(--muted); font-size: 0.84rem; }
+.section-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; align-items: center; }
+.semester-filter-btns { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.semester-filter-btn {
+  min-height: 32px; padding: 6px 10px; border: 1.5px solid var(--line);
+  border-radius: var(--radius); background: var(--panel); color: var(--muted);
+  font-size: 0.78rem; font-weight: 700; cursor: pointer;
+}
+.semester-filter-btn:hover { border-color: var(--primary); color: var(--primary); }
+.semester-filter-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.toggle-btn {
+  min-height: 34px; padding: 7px 11px; border: 1.5px solid var(--line);
+  border-radius: var(--radius); background: var(--panel); color: var(--primary);
+  font-size: 0.82rem; font-weight: 800; cursor: pointer;
+}
+.toggle-btn:hover { border-color: var(--primary); background: var(--primary-soft); }
+.semester-section.collapsed .semester-grid,
+.semester-section.collapsed .section-actions { display: none; }
+.semester-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 14px; }
+.semester-card { background: var(--panel); border: 1px solid rgba(20,30,40,0.07); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+.semester-card header { padding: 15px 16px 12px; border-bottom: 1px solid #edf0f5; }
+.semester-card h3 { font-size: 1.02rem; font-weight: 900; }
+.semester-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.mini-stat { display: inline-flex; align-items: center; min-height: 25px; padding: 3px 8px; border-radius: 5px; background: #f2f5f8; color: var(--muted); font-size: 0.74rem; font-weight: 800; }
+.semester-body { display: grid; gap: 8px; padding: 12px 14px 15px; }
+.course-table-group { border: 1px solid #e8ecf2; border-radius: 8px; overflow: hidden; background: #fff; }
+.course-table-group + .course-table-group { margin-top: 8px; }
+.course-table-group-title { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px; background: #f5f8fc; border-bottom: 1px solid #e8ecf2; color: var(--ink); font-size: 0.8rem; font-weight: 900; }
+.course-table-wrap { overflow-x: auto; }
+.course-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; table-layout: fixed; }
+.course-table th, .course-table td { border: 1px solid #e8ecf2; padding: 6px 7px; text-align: center; vertical-align: middle; word-break: keep-all; white-space: normal; }
+.course-table th { background: #fbfcfd; color: var(--muted); font-weight: 800; }
+.course-table td:nth-child(2) { font-weight: 700; }
+.course-table th:nth-child(1), .course-table td:nth-child(1) { width: 35%; }
+.course-table th:nth-child(2), .course-table td:nth-child(2) { width: 35%; }
+.course-table th:nth-child(3), .course-table td:nth-child(3) { width: 15%; }
+.course-table th:nth-child(4), .course-table td:nth-child(4) { width: 15%; }
+/* 상단 필터(계열/학과/대학 조합)에 해당하는 대학 반영과목(핵심·권장과목)과 일치하는
+   학기별 과목명을 빨강색으로 강조 표시 */
+.course-name-highlighted { color: var(--accent); font-weight: 900; }
+.heat-row.heat-low td { background: #f8fbff; }
+.heat-row.heat-mid td { background: #edf5ff; }
+.heat-row.heat-high td { background: #e0ecff; }
+.tag { display: inline-flex; align-items: center; min-height: 22px; padding: 2px 7px; border-radius: 5px; background: #f1f3f6; color: var(--muted); font-size: 0.71rem; font-weight: 800; }
+.tag.math { background: var(--blue-soft); color: var(--blue); }
+.tag.science { background: var(--primary-soft); color: var(--primary); }
+.tag.info { background: var(--violet-soft); color: var(--violet); }
+.tag.core { background: var(--accent-soft); color: var(--accent); }
+.tag.recommended { background: var(--gold-soft); color: var(--gold); }
+.tag.reflected { background: var(--blue-soft); color: var(--blue); }
+.recommend-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(320px,1fr)); gap: 16px; }
+.recommend-grid.subject-example-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.recommend-grid.recommend-table-mode { display: block; }
+
+/* ── 대학 반영과목 표(헤더 드롭다운 필터) ── */
+.recommend-table-wrap {
+  background: var(--panel); border: 1px solid rgba(20,30,40,0.07);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  max-width: 100%;
+}
+/* 표 헤더 드롭다운(절대 위치)이 잘리지 않도록 가로 스크롤은 의도적으로 사용하지 않음 —
+   화면이 좁으면 페이지(.container) 자체가 가로로 늘어나도록 둔다. */
+.recommend-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; table-layout: fixed; }
+.recommend-table th, .recommend-table td {
+  border: 1px solid #e8ecf2; padding: 8px 10px; text-align: center; vertical-align: top;
+  overflow-wrap: break-word; word-break: keep-all;
+}
+/* 비고/반영과목(핵심·권장과목) 열은 과목 태그·안내문이 들어가므로 가운데 정렬 제외 */
+.recommend-table td.cell-subjects,
+.recommend-table td.cell-note { text-align: left; }
+.recommend-table thead th {
+  background: #f5f8fc; color: var(--ink); font-weight: 800; font-size: 0.8rem;
+  padding: 0; white-space: nowrap;
+}
+/* 원본 엑셀처럼 "반영과목"(1행)·"핵심과목/권장과목"(2행)은 드롭다운 필터가 없는 일반
+   헤더 셀이므로 th-filter와 달리 자체 패딩과 중앙 정렬을 줘야 보기 좋다 */
+.recommend-table thead th:not(.th-filter) { padding: 8px 6px; text-align: center; }
+.recommend-table thead tr:last-child th:not(.th-filter) { background: #eef3fa; font-size: 0.78rem; }
+.recommend-table th.th-filter { padding: 0; }
+.recommend-table th.th-filter .multi-filter summary {
+  border: none; border-radius: 0; min-height: 38px; background: transparent;
+  flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+}
+.recommend-table th.th-filter .multi-filter-label { font-size: 0.78rem; }
+.recommend-table th.th-filter .filter-summary { font-size: 0.7rem; max-width: 100%; }
+.recommend-table th.th-filter .multi-filter[open] summary { background: var(--primary-soft); }
+.recommend-table td.cell-university,
+.recommend-table td.cell-department { font-weight: 700; }
+.recommend-table td.cell-subjects .subject-cloud { gap: 4px 5px; }
+.recommend-table td.cell-note { color: var(--muted); font-size: 0.76rem; }
+.recommend-table tbody tr:nth-child(even) { background: #fbfcfe; }
+/* ⚠ 행 호버 배경은 계열별 매트릭스 표의 "○"(반영 표시) 셀 배경(var(--primary-soft))과
+   겹쳐 보이는 문제가 있었으므로 의도적으로 다른 톤(중성 회색)을 사용한다. */
+.recommend-table tbody tr:hover { background: #eef1f6; }
+.recommend-table .empty { padding: 24px; text-align: center; color: var(--muted); }
+/* 표 헤더를 컨트롤 바(탭 + 검색/필터 바) 바로 아래에 고정 — 행만 스크롤됨.
+   실제 높이는 app.js의 syncStickyTableOffset()이 측정해 --sticky-table-top으로 갱신하므로
+   필터 줄 수가 바뀌어도(반응형 줄바꿈, 학년 선택기 노출 여부 등) 항상 정확히 맞춰진다.
+   JS 실행 전 또는 비활성 시 대비용 기본값만 104px로 남겨둔다. */
+.recommend-table thead { position: sticky; top: var(--sticky-table-top, 104px); z-index: 15; }
+
+/* ── 대학 반영과목 비교 표 / 계열별 대표 모집단위 반영과목 표 탭 전환 ── */
+.recommend-subview-toggle { display: inline-flex; gap: 4px; padding: 3px; border: 1px solid var(--line); border-radius: var(--radius); background: #f5f8fc; }
+.recommend-subview-btn {
+  min-height: 30px; padding: 5px 10px; border: none; border-radius: 7px;
+  background: transparent; color: var(--muted); font-size: 0.78rem; font-weight: 800; cursor: pointer;
+}
+.recommend-subview-btn:hover { color: var(--primary); }
+.recommend-subview-btn.active { background: var(--panel); color: var(--primary); box-shadow: var(--shadow); }
+
+/* ── 계열별 대표 모집단위 반영과목 매트릭스 표 ── */
+.series-matrix-table th { background: #f5f8fc; color: var(--ink); font-weight: 800; font-size: 0.78rem; text-align: center; padding: 6px 4px; white-space: nowrap; }
+/* 과목명 헤더(맨 아래 줄)는 칸 너비가 좁으므로 "확률과 통계"처럼 긴 이름이
+   옆 칸으로 넘치지 않도록 줄바꿈을 허용한다(전체 th 기본값인 nowrap을 덮어씀). */
+.series-matrix-table thead tr:last-child th { background: #eef3fa; font-size: 0.7rem; padding: 6px 2px; white-space: normal; word-break: keep-all; line-height: 1.3; }
+/* 모집단위 칸 너비를 절반으로 줄였으므로(위 col.col-department), 긴 학과명이
+   넘치지 않도록 같이 줄바꿈을 허용한다. */
+.series-matrix-table tbody th { background: #fbfcfd; color: var(--muted); font-weight: 800; vertical-align: middle; white-space: normal; word-break: keep-all; line-height: 1.3; }
+.series-matrix-table td.cell-university { font-weight: 700; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 4px; padding-right: 4px; }
+.series-matrix-table td.cell-matrix-subject { text-align: center; color: var(--muted); padding: 6px 2px; }
+/* box-shadow로 링을 둘러 행 호버 색과 무관하게 "반영 표시" 셀이 항상 또렷이 보이도록 함 */
+.series-matrix-table td.cell-matrix-subject.is-required { color: var(--primary); font-weight: 900; background: var(--primary-soft); box-shadow: inset 0 0 0 1.5px var(--primary); }
+/* 대학명이 옆 칸을 침범하던 문제 보정: 대학명 칸은 넓히고, 과목 칸은 좁힌다 (colgroup 기준) */
+/* 모집단위 칸은 기존(13%)의 절반(6.5%)으로 줄이고, 줄어든 6.5%p를 과목 칸 16개에
+   고르게(각 +0.40625%p) 나눠줬다: 4.3125% → 4.71875%. 합계는 그대로 100%. */
+.series-matrix-table col.col-series { width: 6%; }
+.series-matrix-table col.col-department { width: 6.5%; }
+.series-matrix-table col.col-university { width: 12%; }
+.series-matrix-table col.col-subject { width: 4.71875%; }
+.recommend-card { min-width: 0; background: var(--panel); border: 1px solid rgba(20,30,40,0.07); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+.recommend-header { padding: 14px 16px 10px; border-bottom: 1px solid #edf0f5; }
+.recommend-title h3 { font-size: 1rem; font-weight: 900; }
+.division-line { color: var(--muted); font-size: 0.78rem; margin-top: 2px; }
+.department-name { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.dept-series {
+  display: inline-flex; align-items: center;
+  padding: 3px 10px;
+  background: var(--primary); color: #fff;
+  font-size: 0.74rem; font-weight: 800;
+  border-radius: 20px; letter-spacing: 0.02em;
+}
+.dept-dept {
+  display: inline-flex; align-items: center;
+  padding: 3px 10px;
+  background: var(--primary-soft); color: var(--primary-strong);
+  font-size: 0.74rem; font-weight: 800;
+  border-radius: 20px; border: 1.5px solid var(--primary);
+  letter-spacing: 0.02em;
+}
+.recommend-body { padding: 12px 16px 14px; display: grid; gap: 8px; }
+.info-row { display: grid; grid-template-columns: 64px 1fr; gap: 8px; align-items: start; }
+.info-row > .value { min-width: 0; max-width: 100%; }
+.label { color: var(--muted); font-size: 0.78rem; font-weight: 800; padding-top: 3px; }
+.subject-cloud { display: flex; flex-wrap: wrap; gap: 4px; }
+.match-note { color: var(--muted); font-size: 0.76rem; line-height: 1.5; padding-top: 4px; white-space: pre-wrap; }
+.subject-example-card .recommend-body { gap: 10px; }
+.subject-example-card .info-row {
+  display: block;
+  min-width: 0;
+}
+.subject-example-card .label {
+  display: block;
+  padding-top: 0;
+  margin-bottom: 6px;
+}
+.subject-example-card .value {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+.subject-example-card .subject-cloud {
+  min-width: 0;
+  max-width: 100%;
+}
+.subject-example-card .subject-cloud .tag {
+  max-width: 100%;
+  height: auto;
+  min-height: 22px;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+.example-muted { color: var(--muted); font-size: 0.78rem; font-weight: 700; }
+.example-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.example-course-table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.72rem;
+}
+.example-course-table th,
+.example-course-table td {
+  border: 1px solid #e8ecf2;
+  padding: 7px 8px;
+  vertical-align: top;
+}
+.example-course-table thead th {
+  background: #f5f8fc;
+  color: var(--muted);
+  font-weight: 900;
+  text-align: center;
+  word-break: keep-all;
+}
+.example-course-table tbody th {
+  background: #fbfcfd;
+  color: var(--ink);
+  font-weight: 900;
+  text-align: center;
+  word-break: keep-all;
+}
+.example-course-table thead th:first-child,
+.example-course-table tbody th {
+  width: 74px;
+}
+.example-course-table td { background: #fff; }
+.example-course-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+.example-course-chip {
+  display: inline-flex;
+  max-width: 100%;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: #f7f8fa;
+  color: var(--ink);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.45;
+  word-break: keep-all;
+  white-space: normal;
+}
+.example-empty-cell {
+  display: block;
+  color: #b8c0cc;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 2px 0;
+}
+.example-unspecified {
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e8ecf2;
+  border-radius: var(--radius);
+  background: #fbfcfd;
+}
+.example-unspecified-title {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+.example-unspecified-row {
+  display: grid;
+  grid-template-columns: 58px minmax(0,1fr);
+  gap: 7px;
+  align-items: start;
+  min-width: 0;
+}
+.example-unspecified-row > .tag {
+  justify-content: center;
+  width: 100%;
+}
+.example-empty-table {
+  padding: 10px 12px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.empty { padding: 32px; text-align: center; color: var(--muted); }
+.footer { text-align: center; padding: 20px 18px; color: var(--muted); font-size: 0.78rem; border-top: 1px solid var(--line); }
+@media (max-width: 900px) {
+  .semester-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .recommend-grid.subject-example-grid { grid-template-columns: 1fr; }
+  .filter-groups,
+  .filter-groups.compare-mode { grid-template-columns: 1fr; flex: 1 1 100%; }
+}
+@media (max-width: 600px) {
+  .semester-grid { grid-template-columns: 1fr; }
+  .info-row { grid-template-columns: 1fr; }
+}
+
+/* ── 탭 네비게이션 ── */
+.tab-nav-hidden { display: none; }
+.controls-hidden { display: none; }
+.analysis-hidden { display: none; }
+.tab-nav {
+  display: flex;
+  gap: 0;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  padding: 0 18px;
+  max-width: 100%;
+  overflow-x: auto;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.tab-btn {
+  min-height: 44px;
+  padding: 0 20px;
+  border: none;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+}
+.tab-btn:hover { color: var(--primary); }
+.tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+/* ── 탭 패널 ── */
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── 선택 모드 ── */
+.selection-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 20px;
+  /* 반영과목이 팝업으로 분리되며 사이드바 폭 확보용으로 넓혔던 값을 원래대로
+     되돌림(2026-08, 한때 2000px). */
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 18px 18px 42px;
+  align-items: start;
+}
+.selection-sidebar {
+  position: sticky;
+  top: 48px;
+  display: grid;
+  gap: 14px;
+}
+.sel-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+.sel-card-title {
+  font-size: 0.88rem;
+  font-weight: 900;
+  color: var(--ink);
+  margin-bottom: 12px;
+}
+/* ── 교사 신청 모달 추가 스타일 ── */
+.modal-section-label {
+  font-size: 0.75rem;
+  font-weight: 900;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 0 0 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.tr-inline-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.tr-inline-row input { flex: 1; }
+.tr-action-btn {
+  flex-shrink: 0;
+  height: 40px;
+  padding: 0 12px;
+  border: 1.5px solid var(--primary);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--primary);
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.tr-action-btn:hover { background: var(--primary); color: #fff; }
+.tr-action-btn:disabled { opacity: 0.6; cursor: default; }
+.tr-dup-msg {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.tr-dup-msg.ok  { color: var(--primary); }
+.tr-dup-msg.err { color: var(--accent); }
+.tr-homeroom-row { flex-wrap: wrap; gap: 6px; }
+.tr-homeroom-row select,
+.tr-homeroom-row input {
+  height: 40px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0 10px;
+  font: inherit;
+}
+.tr-google-alt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.tr-google-link {
+  background: none;
+  border: none;
+  color: var(--blue);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+.tr-google-link:hover { color: var(--primary); }
+
+/* ── 검증 카드 ── */
+.verify-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.84rem;
+}
+.verify-item:last-child { border-bottom: none; }
+.verify-icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 900;
+}
+.verify-icon.ok  { background: #1a6fb5; color: #fff; }
+.verify-icon.fail { background: #d14a3a; color: #fff; }
+.verify-icon.pending { background: var(--line); color: var(--muted); }
+.verify-label { flex: 1; color: var(--ink); font-weight: 700; }
+.verify-detail { color: var(--muted); font-size: 0.78rem; font-weight: 800; white-space: nowrap; }
+
+.career-select {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 0.86rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.career-select:focus { outline: 3px solid rgba(17,97,73,0.14); border-color: var(--primary); }
+/* 진로 설정 카드의 대학명/계열/학과 다중 선택 드롭다운(.multi-filter) 세로 배치 */
+.career-filter-stack { display: flex; flex-direction: column; gap: 8px; }
+.career-filter-stack .multi-filter-options { width: 100%; }
+.summary-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.82rem;
+}
+.summary-stat:last-child { border-bottom: none; }
+.summary-stat-label { color: var(--muted); font-weight: 700; }
+.summary-stat-value { font-weight: 900; color: var(--primary); }
+.save-btn {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 900;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.save-btn:hover { background: var(--primary-strong); }
+.save-btn:disabled { background: var(--line); color: var(--muted); cursor: not-allowed; }
+.save-status {
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--muted);
+  min-height: 20px;
+  margin-top: 6px;
+}
+.save-status.success { color: var(--primary); }
+.save-status.error { color: var(--accent); }
+
+/* ── 진로 설정 카드의 반영과목 팝업 열기 버튼(2026-08 추가) ── */
+.career-analysis-btn {
+  width: 100%;
+  margin-top: 10px;
+  min-height: 38px;
+  border: 1.5px solid var(--primary);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--primary);
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, opacity 0.15s;
+}
+.career-analysis-btn:hover:not(:disabled) { background: var(--primary); color: #fff; }
+.career-analysis-btn.active { background: var(--primary); color: #fff; }
+.career-analysis-btn:disabled { opacity: 0.45; cursor: not-allowed; border-color: var(--line); color: var(--muted); }
+
+/* ── 반영과목 팝업(드래그 가능한 플로팅 패널, 2026-08: 사이드바 카드 → 팝업으로 전환) ──
+   position:fixed라 selection-layout의 그리드 흐름과 무관하게 화면 위에 뜨고, 헤더를
+   드래그하면 자유롭게 옮길 수 있다(selectionView.js의 bindAnalysisPanelDrag 참고).
+   .analysis-hidden(display:none)으로 열림/닫힘을 제어한다. */
+.reflected-float-panel {
+  position: fixed;
+  top: 90px;
+  right: 24px;
+  width: 380px;
+  height: 460px;
+  min-width: 300px;
+  min-height: 220px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 48px);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.18);
+  z-index: 500;
+  overflow: hidden;
+  /* 우측 하단 모서리를 드래그해 가로·세로 크기를 조절할 수 있다(2026-08 추가).
+     resize 속성이 동작하려면 overflow가 visible이 아니어야 한다. */
+  resize: both;
+  display: flex;
+  flex-direction: column;
+}
+.reflected-float-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--primary-soft);
+  border-bottom: 1px solid var(--line);
+  cursor: move;
+  user-select: none;
+  touch-action: none;
+  flex-shrink: 0;
+}
+.reflected-float-title { font-size: 0.88rem; font-weight: 900; color: var(--primary-strong); }
+.reflected-float-close {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.reflected-float-close:hover { background: rgba(0,0,0,0.08); color: var(--ink); }
+.reflected-float-body { padding: 12px 14px 14px; overflow-y: auto; flex: 1 1 auto; min-height: 0; }
+
+/* ── 선택 모드 과목 카드 ── */
+.sel-semester-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+@media (max-width: 1200px) {
+  .sel-semester-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+  .sel-semester-grid { grid-template-columns: 1fr; }
+}
+.sel-semester-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.sel-semester-header {
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid #edf0f5;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.sel-semester-header h3 { font-size: 1rem; font-weight: 900; }
+.sel-pick-badge {
+  font-size: 0.76rem;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+/* 학기 카드 본문 — 과목이 많아도 카드 높이가 무한정 늘어나지 않도록 카드별로
+   독립된 스크롤을 둔다(헤더는 스크롤 밖에 고정, 2026-08 추가. 처음 적용한 560px가
+   너무 낮다는 피드백으로 2배인 1120px로 조정). */
+.sel-semester-body {
+  padding: 12px 16px 16px;
+  display: grid;
+  gap: 10px;
+  max-height: 1120px;
+  overflow-y: auto;
+}
+.sel-group-block { border: 1px solid #e8ecf2; border-radius: 8px; overflow: hidden; }
+.sel-group-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #f5f8fc;
+  border-bottom: 1px solid #e8ecf2;
+  font-size: 0.8rem;
+  font-weight: 900;
+  color: var(--ink);
+}
+.sel-group-count {
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--line);
+  color: var(--muted);
+}
+.sel-group-count.valid { background: var(--primary-soft); color: var(--primary); }
+.sel-group-count.over { background: var(--accent-soft); color: var(--accent); }
+.sel-course-list { padding: 6px 8px; display: grid; gap: 4px; }
+.sel-course-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.sel-course-item:hover { background: #f7f8fa; }
+.sel-course-item.selected { background: var(--primary-soft); }
+.sel-course-item.required {
+  background: #f0fdf4;
+  cursor: default;
+  opacity: 0.85;
+}
+.sel-course-cb { accent-color: var(--primary); width: 15px; height: 15px; flex-shrink: 0; }
+.sel-course-name { font-size: 0.84rem; font-weight: 700; color: var(--ink); flex: 1; }
+.sel-course-meta { font-size: 0.72rem; color: var(--muted); }
+.sel-course-item.selected .sel-course-name { color: var(--primary-strong); }
+
+@media (max-width: 800px) {
+  .selection-layout { grid-template-columns: 1fr; }
+  .selection-sidebar { position: static; }
+}
+
+/* ── 진로 매칭 분석 카드 ── */
+.analysis-section { margin-bottom: 14px; }
+.analysis-section:last-child { margin-bottom: 0; }
+.analysis-label {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.analysis-label.warning { color: var(--accent); }
+.analysis-filter-select { margin-bottom: 0; }
+.missing-list { display: flex; flex-wrap: wrap; gap: 4px; }
+.missing-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+.match-subject-list { display: flex; flex-wrap: wrap; gap: 4px; }
+.match-subject-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+.match-subject-chip.selected {
+  border-color: rgba(17,97,73,0.25);
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+}
+.match-subject-chip.unselected {
+  background: #f4f6f8;
+  color: #9aa4b2;
+  border-color: #e2e7ee;
+  opacity: 0.72;
+}
+/* 반영과목 목록도 학기 카드와 마찬가지로 길어지면 카드 안에서 독립 스크롤(2026-08 추가). */
+/* 스크롤은 부모인 .reflected-float-body가 담당한다 — 팝업을 크게 늘리면(resize)
+   목록도 그만큼 더 많이 보이도록 여기서는 높이를 따로 제한하지 않는다. */
+.univ-rank-list { display: grid; gap: 6px; }
+.analysis-empty {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+.univ-rank-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+  align-items: center;
+  padding: 7px 9px;
+  border-radius: 6px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+}
+.univ-rank-name {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.univ-rank-dept {
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.univ-rank-score {
+  font-size: 0.8rem;
+  font-weight: 900;
+  color: var(--primary);
+  white-space: nowrap;
+}
+.univ-rank-item.rank-1 { border-color: var(--primary); background: var(--primary-soft); }
+.univ-missing-item {
+  display: grid;
+  gap: 7px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+}
+.univ-missing-head {
+  display: grid;
+  gap: 2px;
+}
+.univ-missing-name {
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 900;
+  line-height: 1.35;
+}
+.univ-missing-meta {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.univ-missing-row {
+  display: grid;
+  gap: 4px;
+}
+.univ-missing-label {
+  color: var(--primary-strong);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+.univ-note {
+  padding-top: 6px;
+  border-top: 1px dashed var(--line);
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+/* 반영과목 카드 — 핵심/권장/반영 과목군을 라벨과 함께 한 줄에 묶어 보여줄 때 사용 */
+.reflected-group { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 10px 4px 0; }
+.reflected-group-label { color: var(--muted); font-size: 0.7rem; font-weight: 800; margin-right: 2px; }
+
+/* ── 과목 소개 모달 ── */
+#courseModalOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(20,30,40,0.45);
+  z-index: 100;
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+#courseModalOverlay.visible { display: block; }
+
+#courseModal {
+  display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.96);
+  z-index: 101;
+  width: min(860px, 95vw);
+  max-height: 88vh;
+  background: var(--panel);
+  border-radius: 14px;
+  box-shadow: 0 8px 40px rgba(20,30,40,0.18);
+  overflow: hidden;
+  display: none;
+  flex-direction: column;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+  opacity: 0;
+}
+#courseModal.visible {
+  display: flex;
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+}
+
+.cm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.cm-title-wrap { display: flex; align-items: center; gap: 10px; }
+.cm-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 5px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+.cm-title {
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: var(--ink);
+}
+.cm-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 1rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cm-close:hover { background: var(--accent-soft); color: var(--accent); }
+
+.cm-body {
+  overflow-y: auto;
+  padding: 22px 24px 28px;
+  flex: 1;
+}
+
+/* 로딩 */
+.cm-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+.cm-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--line);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* 준비 중 안내 */
+.cm-empty {
+  text-align: center;
+  padding: 40px 24px;
+}
+.cm-empty-icon { font-size: 2.5rem; margin-bottom: 14px; }
+.cm-empty-title { font-size: 1.1rem; font-weight: 900; margin-bottom: 10px; }
+.cm-empty-desc { color: var(--muted); font-size: 0.86rem; line-height: 1.7; }
+.cm-empty-desc code {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 4px 8px;
+  background: var(--bg);
+  border-radius: 5px;
+  font-size: 0.8rem;
+  color: var(--primary);
+}
+
+/* 과목 소개 HTML 내부 스타일 */
+.cm-body .course-intro { font-size: 0.9rem; line-height: 1.7; color: var(--ink); }
+.cm-body .ci-section { margin-bottom: 24px; }
+.cm-body .ci-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: var(--primary);
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--primary-soft);
+}
+.cm-body .ci-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+  margin-bottom: 12px;
+}
+.cm-body .ci-table th, .cm-body .ci-table td {
+  border: 1px solid var(--line);
+  padding: 8px 10px;
+  text-align: center;
+  vertical-align: middle;
+}
+.cm-body .ci-table th { background: var(--bg); font-weight: 800; color: var(--muted); }
+.cm-body .ci-table td { font-weight: 700; }
+.cm-body .ci-desc {
+  padding: 14px 16px;
+  background: var(--bg);
+  border-radius: var(--radius);
+  border-left: 3px solid var(--primary);
+  font-size: 0.86rem;
+  line-height: 1.75;
+  color: var(--ink);
+  margin-bottom: 12px;
+}
+.cm-body .ci-tag-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.cm-body .ci-tag {
+  padding: 4px 10px;
+  border-radius: 5px;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+.cm-body .ci-tag.related { background: var(--primary-soft); color: var(--primary); }
+.cm-body .ci-tag.job { background: var(--gold-soft); color: var(--gold); }
+.cm-body .ci-tag.next { background: var(--blue-soft); color: var(--blue); }
+
+/* 과목 클릭 커서 */
+.course-name-link {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  transition: text-decoration-color 0.15s;
+}
+.course-name-link:hover {
+  text-decoration-color: var(--primary);
+  color: var(--primary);
+}
+
+/* ── 과목 소개 모달 내부 공통 스타일 (ci-*) ── */
+.ci-wrap { font-size:0.88rem; line-height:1.7; color:var(--ink); }
+.ci-sec { margin-bottom:22px; }
+.ci-sec-head {
+  display:flex; align-items:center; gap:8px;
+  font-size:0.9rem; font-weight:900; color:var(--primary);
+  padding:8px 12px; background:var(--primary-soft);
+  border-radius:8px; margin-bottom:12px;
+}
+.ci-sec-head .ci-icon { font-size:1rem; }
+.ci-info-table {
+  width:100%; border-collapse:collapse;
+  font-size:0.82rem; margin-bottom:12px;
+}
+.ci-info-table th, .ci-info-table td {
+  border:1px solid var(--line);
+  padding:7px 10px; text-align:center; vertical-align:middle;
+}
+.ci-info-table th {
+  background:#f5f8fc; color:var(--muted);
+  font-weight:800; font-size:0.78rem;
+}
+.ci-info-table td { font-weight:700; }
+.ci-check { color:var(--primary); font-weight:900; font-size:1rem; }
+.ci-dash  { color:var(--muted); }
+.ci-box {
+  padding:14px 16px;
+  background:linear-gradient(135deg,#f0faf5 0%,#e8f4ee 100%);
+  border-left:3px solid var(--primary);
+  border-radius:0 8px 8px 0;
+  font-size:0.85rem; line-height:1.75;
+  margin-bottom:12px; color:var(--ink);
+}
+.ci-box b { color:var(--primary-strong); }
+.ci-flow {
+  display:flex; align-items:flex-start; gap:6px;
+  flex-wrap:wrap; margin-bottom:12px;
+}
+.ci-flow-group {
+  flex:1 1 140px;
+  border:1px solid var(--line);
+  border-radius:8px; overflow:hidden;
+}
+.ci-flow-group-head {
+  padding:6px 10px;
+  font-size:0.76rem; font-weight:900;
+  text-align:center;
+}
+.ci-flow-group-head.common { background:#e8f4ee; color:var(--primary-strong); }
+.ci-flow-group-head.normal { background:#e8f1fb; color:#185fa5; }
+.ci-flow-group-head.career { background:#fff5d8; color:#854f0b; }
+.ci-flow-group-head.fusion { background:#f0ecfb; color:#7357b8; }
+.ci-flow-group-body { padding:8px 10px; background:var(--panel); }
+.ci-flow-item {
+  display:block; font-size:0.78rem; font-weight:700;
+  color:var(--ink); padding:3px 0;
+  border-bottom:1px dashed var(--line);
+}
+.ci-flow-item:last-child { border-bottom:none; }
+.ci-arrow {
+  align-self:center; color:var(--muted);
+  font-size:1.1rem; flex-shrink:0; padding-top:26px;
+}
+.ci-idea-list { display:grid; gap:8px; }
+.ci-idea-item {
+  display:flex; gap:10px; align-items:flex-start;
+  padding:10px 12px;
+  background:var(--panel);
+  border:1px solid var(--line); border-radius:8px;
+}
+.ci-idea-num {
+  width:22px; height:22px; border-radius:50%;
+  background:var(--primary); color:#fff;
+  font-size:0.72rem; font-weight:900;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0; margin-top:1px;
+}
+.ci-idea-text { font-size:0.83rem; line-height:1.65; color:var(--ink); }
+.ci-tags { display:flex; flex-wrap:wrap; gap:5px; margin-top:6px; }
+.ci-tag {
+  padding:4px 10px; border-radius:5px;
+  font-size:0.76rem; font-weight:800;
+}
+.ci-tag.dept { background:var(--primary-soft); color:var(--primary-strong); }
+.ci-tag.job  { background:var(--gold-soft); color:var(--gold); }
+.ci-tag.next { background:var(--blue-soft); color:var(--blue); }
+.ci-sub { font-size:0.78rem; font-weight:800; color:var(--muted); margin:10px 0 6px; }
+
+/* ── 내 교육과정 보기 ── */
+.myplan-layout {
+  display: flex;
+  align-items: flex-start;
+}
+.myplan-wrap {
+  flex: 1;
+  min-width: 0;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 20px 18px 48px;
+}
+.myplan-header { margin-bottom: 20px; }
+.myplan-header h2 { font-size: 1.1rem; font-weight: 900; color: var(--ink); margin-bottom: 4px; }
+.myplan-desc { font-size: 0.84rem; color: var(--muted); }
+
+/* 수형도 그리드 */
+.myplan-grid {
+  display: grid;
+  grid-template-columns: 80px 52px 52px repeat(6, 1fr);
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--panel);
+}
+
+/* 헤더 행 */
+.myplan-col-head {
+  padding: 10px 14px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-align: center;
+}
+.myplan-col-head.area-head {
+  background: var(--primary-strong);
+}
+.myplan-col-head.stat-head {
+  background: var(--primary-strong);
+  font-size: 0.74rem;
+  padding: 10px 4px;
+}
+
+/* 교과군 행 */
+.myplan-area-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 8px;
+  font-size: 0.8rem;
+  font-weight: 900;
+  color: var(--primary-strong);
+  background: var(--primary-soft);
+  border-right: 1px solid var(--line);
+  border-top: 1px solid var(--line);
+  writing-mode: initial;
+  text-align: center;
+}
+
+/* 학점·비율 열 */
+.myplan-stat-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 2px;
+  border-top: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  background: var(--primary-soft);
+  text-align: center;
+}
+.myplan-stat-num {
+  font-size: 0.88rem;
+  font-weight: 900;
+  color: var(--primary-strong);
+  line-height: 1.2;
+}
+.myplan-stat-pct {
+  font-size: 0.88rem;
+  font-weight: 900;
+  color: var(--primary-strong);
+  line-height: 1.2;
+}
+
+/* 셀 */
+.myplan-cell {
+  padding: 10px 10px;
+  border-top: 1px solid var(--line);
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+}
+
+/* 과목 박스 */
+.myplan-course {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.1s;
+  border: 1.5px solid transparent;
+}
+.myplan-course:hover { transform: translateY(-1px); }
+.myplan-course.unselected {
+  opacity: 0.28;
+  filter: grayscale(0.6);
+  font-weight: 500;
+}
+.myplan-course.unselected:hover { transform: none; }
+.myplan-course.type-지정 {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  color: var(--primary-strong);
+}
+.myplan-course.type-일반 {
+  background: var(--blue-soft);
+  border-color: #b8d4f0;
+  color: #185fa5;
+}
+.myplan-course.type-진로 {
+  background: var(--gold-soft);
+  border-color: #e0c070;
+  color: var(--gold);
+}
+.myplan-course.type-융합 {
+  background: var(--violet-soft);
+  border-color: #c9bcf0;
+  color: var(--violet);
+}
+.myplan-course-name { flex: 1; line-height: 1.35; }
+.myplan-credit {
+  font-size: 0.68rem;
+  font-weight: 800;
+  opacity: 0.7;
+  white-space: nowrap;
+}
+.myplan-total-label,
+.myplan-total-cell {
+  background: #eef4f1;
+  border-top: 2px solid var(--primary);
+}
+.myplan-semester-total {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  color: var(--primary-strong);
+  font-size: 0.88rem;
+  font-weight: 900;
+}
+
+
+
+/* 범례 */
+.myplan-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.myplan-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: var(--muted);
+}
+.myplan-legend-dot {
+  width: 12px; height: 12px;
+  border-radius: 3px;
+  border: 1.5px solid transparent;
+}
+.myplan-legend-dot.type-지정 { background: var(--primary-soft); border-color: var(--primary); }
+.myplan-legend-dot.type-일반 { background: var(--blue-soft); border-color: #b8d4f0; }
+.myplan-legend-dot.type-진로 { background: var(--gold-soft); border-color: #e0c070; }
+.myplan-legend-dot.type-융합 { background: var(--violet-soft); border-color: #c9bcf0; }
+.myplan-legend-dot.unselected { background: #e8e8e8; border-color: #ccc; opacity: 0.5; }
+
+/* 빈 셀 */
+.myplan-empty {
+  font-size: 0.74rem;
+  color: #ccc;
+  text-align: center;
+  padding: 8px 0;
+  font-style: italic;
+}
+
+/* 전체 요약 */
+.myplan-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+.myplan-summary-card {
+  flex: 1 1 150px;
+  padding: 12px 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  text-align: center;
+}
+.myplan-summary-num {
+  font-size: 1.4rem;
+  font-weight: 900;
+  color: var(--primary);
+  line-height: 1.2;
+}
+.myplan-summary-label {
+  font-size: 0.76rem;
+  color: var(--muted);
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+@media (max-width: 800px) {
+  .myplan-grid {
+    grid-template-columns: 60px 38px 38px repeat(6, 1fr);
+    font-size: 0.74rem;
+  }
+  .myplan-stat-num, .myplan-stat-pct { font-size: 0.72rem; }
+  .myplan-course { padding: 5px 7px; }
+}
+
+/* ── 과목 선택 현황(개별) 학생 선택기 (왼쪽 패널) ── */
+.myplan-sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  padding: 16px 14px;
+  position: sticky;
+  top: 44px;
+  align-self: flex-start;
+  max-height: calc(100vh - 44px);
+  overflow-y: auto;
+}
+.mpicker-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.mpicker-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mpicker-label {
+  width: 36px;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+.mpicker-field select,
+.mpicker-field input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 0.86rem;
+  background: #fff;
+  outline: none;
+}
+.mpicker-field select:focus,
+.mpicker-field input:focus { border-color: var(--primary); }
+.mpicker-search-btn {
+  height: 36px;
+  padding: 0 18px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s;
+}
+.mpicker-search-btn:hover { background: var(--primary-strong); }
+/* 검색 결과(학생 목록) 영역 */
+.mpicker-result {
+  margin-top: 14px;
+  min-height: 28px;
+}
+.mpicker-found {
+  font-size: 0.84rem;
+  color: var(--primary);
+  font-weight: 700;
+}
+.mpicker-empty { font-size: 0.84rem; color: var(--muted); }
+.mpicker-list-title {
+  font-size: 0.76rem;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.mpicker-multi-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mpicker-student {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  font-size: 0.82rem;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s, color 0.12s;
+}
+.mpicker-student:hover { border-color: var(--primary); color: var(--primary); }
+.mpicker-student.active {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+.mpicker-student-info { color: var(--muted); font-size: 0.78rem; white-space: nowrap; }
+.mpicker-student-name { font-weight: 700; font-size: 0.88rem; white-space: nowrap; }
+.mpicker-hint {
+  text-align: center;
+  padding: 48px 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.myplan-student-label {
+  display: inline-block;
+  margin-bottom: 4px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+/* ── 교사용 탭 ── */
+.teacher-wrap {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px 18px 48px;
+}
+.teacher-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.teacher-header h2 {
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+.teacher-desc {
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+.teacher-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.teacher-refresh-btn {
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--primary);
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+.admin-selection-upload-label {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+.teacher-refresh-btn:hover {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.teacher-filter-bar {
+  display: grid;
+  grid-template-columns: 150px 150px minmax(220px,1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+#memberReqFilterBar {
+  grid-template-columns: 110px 110px 110px minmax(200px,1fr);
+}
+/* 관리자용 "선택 현황"의 학년/학급/번호/이름 필터 — 번호 열 추가로 4열 구성 */
+.teacher-admin-filter-bar {
+  grid-template-columns: 120px 120px 100px minmax(200px,1fr);
+}
+.teacher-filter-field {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+.teacher-filter-field select,
+.teacher-filter-field input {
+  min-height: 38px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 0.84rem;
+}
+.teacher-filter-field input { cursor: text; }
+.teacher-filter-field select:focus,
+.teacher-filter-field input:focus {
+  outline: 3px solid rgba(17,97,73,0.14);
+  border-color: var(--primary);
+}
+.teacher-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(5,minmax(0,1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.teacher-stat-card {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+.teacher-stat-value {
+  color: var(--primary);
+  font-size: 1.28rem;
+  font-weight: 900;
+  line-height: 1.2;
+}
+.teacher-stat-label {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+.teacher-section {
+  margin-top: 18px;
+}
+.teacher-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.teacher-section-head h3 {
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+.teacher-section-head span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+.teacher-table-wrap {
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+.teacher-table {
+  width: 100%;
+  min-width: 880px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.78rem;
+}
+.teacher-table th,
+.teacher-table td {
+  border: 1px solid #e8ecf2;
+  padding: 9px 10px;
+  vertical-align: top;
+  line-height: 1.5;
+}
+.teacher-table th {
+  background: #f5f8fc;
+  color: var(--muted);
+  text-align: center;
+  font-weight: 900;
+}
+.teacher-table td:nth-child(1),
+.teacher-table td:nth-child(2),
+.teacher-table td:nth-child(3),
+.teacher-table td:nth-child(6) {
+  text-align: center;
+  vertical-align: middle;
+}
+.teacher-class-table th:nth-child(1),
+.teacher-class-table th:nth-child(2) { width: 80px; }
+.teacher-class-table th:nth-child(3),
+.teacher-class-table th:nth-child(4),
+.teacher-class-table th:nth-child(5) { width: 90px; }
+.teacher-course-table th:nth-child(1) { width: 28%; }
+.teacher-course-table th:nth-child(2),
+.teacher-course-table th:nth-child(3) { width: 120px; }
+.teacher-student-table { min-width: 1180px; }
+.teacher-student-table th:nth-child(1),
+.teacher-student-table th:nth-child(2),
+.teacher-student-table th:nth-child(3) { width: 70px; }
+.teacher-student-table th:nth-child(4) { width: 110px; }
+.teacher-student-table th:nth-child(5) { width: 210px; }
+.teacher-student-table th:nth-child(6) { width: 80px; }
+.teacher-student-table th:nth-child(8) { width: 150px; }
+/* 관리자용 "학생별 선택 현황" 표 — 학기별 선택과목 칸 구조라 일반 교사용 표와 열 구성이
+   다르므로 위 nth-child 규칙을 덮어쓴다(.teacher-admin-student-table이 우선 적용). */
+/* ⚠ 2026-07: 학년·학급·번호·이름·저장 시각 열을 타이트하게 줄여 표 전체가 본문
+   영역(.container, max-width 1240px) 안에 들어오도록(가로 스크롤 없이) 조정.
+   학기별 선택과목 칸(5개)은 그대로 두되 min-width만 소폭 줄였고, 관리 열은 버튼이
+   2개→3개(수정/초기화/탈퇴)로 늘어난 만큼 폭을 넓혔다. */
+.teacher-admin-student-table { min-width: 1120px; }
+.teacher-admin-student-table th:nth-child(1),
+.teacher-admin-student-table th:nth-child(2),
+.teacher-admin-student-table th:nth-child(3) { width: 34px; }
+.teacher-admin-student-table th:nth-child(4) { width: 68px; }
+.teacher-admin-student-table th:nth-child(5),
+.teacher-admin-student-table th:nth-child(6),
+.teacher-admin-student-table th:nth-child(7),
+.teacher-admin-student-table th:nth-child(8),
+.teacher-admin-student-table th:nth-child(9) { width: auto; min-width: 138px; }
+.teacher-admin-student-table th:nth-child(10) { width: 108px; }
+.teacher-admin-student-table th:nth-child(11) { width: 165px; }
+.teacher-admin-student-table th,
+.teacher-admin-student-table td {
+  text-align: center;
+}
+.teacher-admin-student-table .teacher-chip-list {
+  justify-content: center;
+}
+.teacher-admin-student-table td:last-child > div {
+  justify-content: center;
+}
+.teacher-course-name,
+.teacher-student-name {
+  color: var(--ink);
+  font-weight: 900;
+}
+.teacher-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.teacher-semester-selection {
+  display: grid;
+  gap: 7px;
+}
+.teacher-selection-semester {
+  display: grid;
+  grid-template-columns: 78px minmax(0,1fr);
+  gap: 8px;
+  align-items: start;
+}
+.teacher-selection-title {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 900;
+  line-height: 1.55;
+  white-space: nowrap;
+}
+.teacher-chip {
+  display: inline-flex;
+  max-width: 100%;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1.45;
+  word-break: keep-all;
+}
+.teacher-muted {
+  color: var(--muted);
+  font-weight: 700;
+}
+.teacher-empty {
+  padding: 36px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  color: var(--muted);
+  background: var(--panel);
+  text-align: center;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+/* ── 과목 선택 현황(통계) 탭 — 학급별 매트릭스 + 학생별 선택 현황 ── */
+.teacher-matrix-block { margin-bottom: 22px; }
+.teacher-matrix-block:last-child { margin-bottom: 0; }
+.teacher-section-head h4 {
+  color: var(--ink);
+  font-size: 0.88rem;
+  font-weight: 900;
+}
+.teacher-matrix-table { min-width: auto; table-layout: auto; }
+.teacher-matrix-table th,
+.teacher-matrix-table td {
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.teacher-matrix-table td:first-child,
+.teacher-matrix-table th:first-child { white-space: nowrap; }
+.teacher-matrix-total-row td {
+  background: #f5f8fc;
+  color: var(--primary-strong);
+  font-weight: 900;
+}
+/* "1학년의 2,3학년 과목 선택 현황표" · "2학년의 3학년 과목 선택 현황표" — 과목이 행, 학급이 열
+   (열 순서: 학년·학기·교과·과목·선택 그룹·학점·선택 총원·N반...) */
+.teacher-course-selection-table th:nth-child(1),
+.teacher-course-selection-table th:nth-child(2) { width: 60px; }
+.teacher-course-selection-table th:nth-child(3) { width: 90px; }
+.teacher-course-selection-table th:nth-child(4) { width: auto; min-width: 140px; text-align: left; }
+.teacher-course-selection-table td:nth-child(4) { text-align: left; }
+.teacher-course-selection-table th:nth-child(5) { width: 90px; }
+.teacher-course-selection-table th:nth-child(6),
+.teacher-course-selection-table th:nth-child(7) { width: 70px; }
+/* 표 우측 상단(개수 표시 + 접기 버튼) */
+.teacher-section-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.teacher-collapse-btn {
+  padding: 4px 10px;
+  border-radius: 5px;
+  border: 1.5px solid var(--line);
+  background: #fff;
+  color: var(--primary);
+  font-size: 0.76rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+.teacher-collapse-btn:hover { border-color: var(--primary); background: var(--primary-soft); }
+/* "N학년의 [대상] 과목 선택 현황표" — 학년/학기/교과/과목 필터 4열.
+   (.teacher-filter-bar.teacher-course-filter-bar 복합 선택자로 이후에 나오는
+   .teacher-stats-filter-bar의 3열 규칙보다 우선순위를 높게 유지) */
+.teacher-filter-bar.teacher-course-filter-bar {
+  grid-template-columns: repeat(4, minmax(0,1fr));
+}
+/* "학급별 선택 참여 현황" — 첫 열은 행 라벨("미참여자 총원"), 나머지 학급 열은 너비를 균일하게 */
+.teacher-participation-table {
+  table-layout: fixed;
+}
+.teacher-participation-table th:first-child,
+.teacher-participation-table td:first-child {
+  width: 96px;
+  white-space: nowrap;
+}
+.teacher-stats-filter-bar {
+  grid-template-columns: 120px 120px minmax(160px,220px);
+}
+.teacher-stats-student-table { table-layout: auto; min-width: auto; }
+.teacher-stats-student-table th:nth-child(1),
+.teacher-stats-student-table th:nth-child(2),
+.teacher-stats-student-table th:nth-child(3) { width: 64px; }
+.teacher-stats-student-table th:nth-child(4) { width: 110px; }
+.stats-sortable {
+  cursor: pointer;
+  user-select: none;
+}
+.stats-sortable:hover { background: #eaf1fb; }
+/* 학생별 선택 현황 표 — 헤더의 과목명 클릭 시 선택자만/미선택자만으로 필터링 */
+.stats-filterable {
+  cursor: pointer;
+  user-select: none;
+}
+.stats-filterable:hover { background: #eaf1fb; }
+.stats-filterable.stats-filter-active {
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+}
+.stats-mark-cell { text-align: center; vertical-align: middle; }
+.stats-mark {
+  color: var(--primary);
+  font-weight: 900;
+}
+.stats-student-name-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--primary-strong);
+  font-weight: 900;
+  font-size: 0.78rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.stats-student-name-btn:hover { color: var(--primary); }
+.teacher-empty-cell {
+  text-align: center;
+  color: var(--muted);
+  font-weight: 700;
+  padding: 18px;
+}
+
+/* ── 교사 신청 관리 패널 (관리자 전용) ── */
+.teacher-requests-section { margin-bottom: 28px; }
+.teacher-requests-loading {
+  padding: 20px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+.teacher-requests-empty {
+  padding: 16px 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+.teacher-requests-group { margin-bottom: 16px; }
+.teacher-requests-group-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 900;
+  margin-bottom: 8px;
+}
+.teacher-requests-group-title.pending  { background: var(--gold-soft); color: var(--gold); }
+.teacher-requests-group-title.approved { background: var(--primary-soft); color: var(--primary); }
+.teacher-requests-group-title.rejected { background: #f5f5f5; color: var(--muted); }
+.teacher-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: currentColor;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+.pending .teacher-badge  { background: var(--gold); color: #fff; }
+.approved .teacher-badge { background: var(--primary); color: #fff; }
+.rejected .teacher-badge { background: var(--muted); color: #fff; }
+
+.teacher-action-btn {
+  padding: 4px 12px;
+  border-radius: 5px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.teacher-action-btn.approve { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
+.teacher-action-btn.reject  { background: var(--accent-soft); color: var(--accent); border-color: #f5c6c0; }
+.teacher-action-btn.remove  { background: #f5f5f5; color: var(--muted); border-color: var(--line); }
+.teacher-action-btn:disabled { opacity: 0.5; cursor: default; }
+
+.teacher-requests-refresh {
+  padding: 4px 12px;
+  border-radius: 5px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  border: 1.5px solid var(--line);
+  background: #fff;
+  cursor: pointer;
+  color: var(--muted);
+}
+.rejected-group > summary { cursor: pointer; list-style: none; }
+.rejected-group > summary::-webkit-details-marker { display: none; }
+
+@media (max-width: 900px) {
+  .teacher-filter-bar,
+  #memberReqFilterBar,
+  .admin-picker-filter-bar {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+  }
+  .teacher-search-field {
+    grid-column: 1 / -1;
+  }
+  .admin-picker-filter-bar .teacher-search-field,
+  .admin-picker-filter-bar .admin-picker-btn {
+    grid-column: 1 / -1;
+  }
+  .teacher-stat-grid {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+  }
+}
+
+/* ── 전공 계열 탭 ── */
+.major-series-wrap {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 20px 18px 48px;
+}
+.major-series-header { margin-bottom: 14px; }
+.major-series-header h2 {
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+.major-series-desc { font-size: 0.84rem; color: var(--muted); }
+.major-series-note {
+  margin-top: 8px;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+.major-series-search {
+  display: grid;
+  grid-template-columns: auto minmax(220px, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+.major-series-search-label {
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.major-series-search input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--ink);
+  background: var(--panel);
+  cursor: text;
+}
+.major-series-search input:focus {
+  outline: 3px solid rgba(17,97,73,0.14);
+  border-color: var(--primary);
+}
+.major-series-search-clear {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 12px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+.major-series-search-clear:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.major-series-search-count {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-align: right;
+  white-space: nowrap;
+}
+.major-series-table-wrap {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: auto;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+.major-series-table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.79rem;
+}
+.major-series-table th,
+.major-series-table td {
+  border: 1px solid #e8ecf2;
+  padding: 10px 10px;
+  vertical-align: top;
+  line-height: 1.6;
+}
+.major-series-table thead th {
+  background: #f5f8fc;
+  color: var(--muted);
+  text-align: center;
+  font-weight: 900;
+}
+.major-series-table td:nth-child(1),
+.major-series-table td:nth-child(2),
+.major-series-table td:nth-child(4) {
+  word-break: keep-all;
+}
+.major-series-main-table td:nth-child(1),
+.major-series-main-table td:nth-child(2),
+.major-series-similar-table td:nth-child(1),
+.major-series-similar-table td:nth-child(2) {
+  text-align: center;
+  vertical-align: middle;
+}
+.major-series-series {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+  border: 1px solid #cde4db;
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+.major-series-highlight {
+  color: var(--primary-strong);
+  font-weight: 900;
+}
+.major-series-empty {
+  display: none;
+  margin: 8px 0 14px;
+  padding: 12px 14px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  background: #fafcfd;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+.major-series-empty.visible { display: block; }
+
+@media (max-width: 800px) {
+  .major-series-search {
+    grid-template-columns: 1fr auto;
+  }
+  .major-series-search-label,
+  .major-series-search-count {
+    grid-column: 1 / -1;
+    text-align: left;
+  }
+}
+
+/* ── 관리자 서브탭 ── */
+.admin-subnav {
+  display: flex; gap: 6px; padding: 12px 18px;
+  background: var(--panel); border-bottom: 1px solid var(--line);
+}
+.admin-subnav-btn {
+  border: 1px solid var(--line); border-radius: 8px; padding: 8px 18px;
+  background: var(--bg); color: var(--muted); font-size: 0.88rem; font-weight: 700; transition: all 0.15s;
+}
+.admin-subnav-btn:hover { border-color: var(--primary); color: var(--primary); }
+.admin-subnav-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+/* ── 회원 관리 패널 ── */
+.member-section { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); box-shadow: var(--shadow); margin-bottom: 20px; overflow: hidden; }
+.member-section-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--line); background: #f8fafc; }
+.member-section-head h3 { font-size: 0.95rem; font-weight: 900; color: var(--ink); }
+.member-section-toggle { flex-shrink: 0; height: 28px; padding: 0 12px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--muted); font-size: 0.78rem; font-weight: 700; cursor: pointer; transition: all 0.15s; }
+.member-section-toggle:hover { border-color: var(--primary); color: var(--primary); }
+.member-section.collapsed .member-section-body { display: none; }
+.member-add-form { display: flex; gap: 8px; padding: 12px 18px; border-bottom: 1px solid var(--line); background: var(--primary-soft); align-items: center; flex-wrap: wrap; }
+.member-add-form input { flex: 1 1 240px; height: 36px; border: 1px solid var(--line); border-radius: var(--radius); padding: 0 10px; font: inherit; font-size: 0.85rem; }
+.member-add-form input:focus { outline: 2px solid var(--primary); border-color: var(--primary); }
+.member-add-btn { height: 36px; padding: 0 16px; background: var(--primary); color: #fff; border: none; border-radius: var(--radius); font-size: 0.84rem; font-weight: 700; cursor: pointer; }
+.member-add-btn:hover { background: var(--primary-strong); }
+.member-add-msg { font-size: 0.78rem; font-weight: 700; }
+.member-add-msg.ok { color: var(--primary); }
+.member-add-msg.err { color: var(--accent); }
+.member-table-wrap { overflow-x: auto; }
+.member-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; min-width: 480px; }
+.member-table th { background: #f5f8fc; color: var(--muted); font-weight: 900; text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.member-table td { padding: 9px 12px; border-bottom: 1px solid #f0f3f8; vertical-align: middle; word-break: break-all; }
+.member-table tr:last-child td { border-bottom: none; }
+.member-table tr:hover td { background: #f8fafc; }
+.member-table-centered th,
+.member-table-centered td { text-align: center; }
+.member-badge-direct { display: inline-block; padding: 2px 7px; border-radius: 999px; background: var(--blue-soft); color: var(--blue); font-size: 0.72rem; font-weight: 900; }
+.member-empty { padding: 20px 18px; color: var(--muted); font-size: 0.84rem; }
+.member-action-btn { height: 28px; padding: 0 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; border: 1px solid; cursor: pointer; transition: all 0.15s; }
+.member-action-btn.approve { border-color: var(--primary); color: var(--primary); background: #fff; }
+.member-action-btn.approve:hover { background: var(--primary); color: #fff; }
+.member-action-btn.reject  { border-color: var(--muted); color: var(--muted); background: #fff; }
+.member-action-btn.reject:hover { border-color: var(--accent); color: var(--accent); }
+.member-action-btn.remove  { border-color: var(--accent); color: var(--accent); background: #fff; }
+.member-action-btn.remove:hover { background: var(--accent); color: #fff; }
+.member-action-btn.edit { border-color: var(--blue); color: var(--blue); background: #fff; }
+.member-action-btn.edit:hover { background: var(--blue); color: #fff; }
+.member-action-btn.url { border-color: var(--primary); color: var(--primary); background: #fff; margin-left: 4px; }
+.member-action-btn.url:hover { background: var(--primary); color: #fff; }
+.member-url-link { color: var(--primary); font-weight: 700; font-size: 0.78rem; text-decoration: underline; }
+.member-url-empty { color: var(--muted); font-size: 0.78rem; }
+.member-pending-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--accent); color: #fff; font-size: 0.72rem; font-weight: 900; margin-left: 6px; }
+.member-details summary { list-style: none; display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.member-details summary::-webkit-details-marker { display: none; }
+
+/* ── 데이터 관리 패널(교육과정 엑셀 업로드) ── */
+.dm-upload-body { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.dm-file-label {
+  display: inline-flex; align-items: center; height: 38px; padding: 0 18px; border-radius: var(--radius);
+  background: var(--primary); color: #fff; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: background 0.15s;
+}
+.dm-file-label:hover { background: var(--primary-strong); }
+.dm-parse-status { font-size: 0.82rem; font-weight: 700; }
+.dm-status-loading { color: var(--muted); }
+.dm-status-ok { color: var(--primary); }
+.dm-status-err { color: var(--accent); }
+.dm-warning-box { margin: 14px 18px 0; padding: 12px 14px; border: 1px solid #f0c96b; border-radius: var(--radius); background: #fdf6e3; }
+.dm-warning-title { font-size: 0.85rem; font-weight: 900; color: #8a6400; margin-bottom: 6px; }
+.dm-warning-list { margin: 0; padding-left: 18px; font-size: 0.8rem; color: #7a5a00; line-height: 1.6; }
+.dm-skipped-note { margin: 12px 18px 0; font-size: 0.8rem; color: var(--muted); }
+.dm-cohort-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; padding: 14px 18px; }
+.dm-cohort-card { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #fff; }
+.dm-cohort-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; background: #f8fafc; border-bottom: 1px solid var(--line); }
+.dm-cohort-title { font-size: 0.88rem; font-weight: 900; color: var(--ink); }
+.dm-cohort-diff { font-size: 0.78rem; font-weight: 700; color: var(--primary); white-space: nowrap; }
+.dm-cohort-sheets { padding: 8px 14px 0; font-size: 0.76rem; color: var(--muted); }
+.dm-semester-table { min-width: 0; }
+.dm-apply-bar { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.dm-apply-msg { font-size: 0.82rem; font-weight: 700; color: var(--muted); }
+.dm-apply-msg.ok { color: var(--primary); }
+.dm-apply-msg.err { color: var(--accent); }
+.dm-section-desc { margin: 0; padding: 10px 18px; font-size: 0.8rem; color: var(--muted); line-height: 1.6; border-bottom: 1px solid var(--line); }
+.dm-current-count { padding: 12px 18px; font-size: 0.85rem; color: var(--ink); }
+.dm-current-count strong { color: var(--primary); }
+
+/* ── 계열(학과)-과목 탐색 서브 네비게이션 ── */
+.ms-subnav {
+  display: flex;
+  gap: 6px;
+  padding: 12px 18px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  position: sticky;
+  top: 44px;
+  z-index: 90;
+}
+.ms-subnav-btn {
+  flex-shrink: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 16px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 700;
+  transition: all 0.15s;
+}
+.ms-subnav-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.ms-subnav-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+.ms-view { display: block; }
+.ms-view[hidden] { display: none !important; }
+
+/* ── 2022SubjectGuide 컨텐츠 (.sg-wrap 스코프) ── */
+.sg-wrap {
+  --ink: #1d252c;
+  --muted: #5c6672;
+  --paper: #f6f8fb;
+  --panel: #ffffff;
+  --line: #dbe2ea;
+  --accent: #0b7285;
+  --accent-2: #b07a00;
+  --accent-3: #8f3d56;
+  --shadow: 0 18px 45px rgba(29,37,44,0.08);
+  --sticky-detail-top: 104px;
+  background: var(--paper);
+  color: var(--ink);
+  line-height: 1.65;
+  font-family: "Noto Sans KR", sans-serif;
+}
+.sg-wrap a { color: inherit; text-decoration: none; }
+.sg-wrap .home-shell,
+.sg-wrap .detail-shell {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+}
+.sg-wrap .hero { padding: 32px 0 24px; }
+.sg-wrap .eyebrow {
+  margin: 0 0 10px;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 800;
+}
+.sg-wrap h1, .sg-wrap h2 { margin: 0; letter-spacing: 0; line-height: 1.2; }
+.sg-wrap .hero h1 { max-width: 780px; font-size: clamp(18px,3vw,34px); }
+.sg-wrap .hero-stats { display: flex; flex-wrap: wrap; gap: 10px; margin: 24px 0; }
+.sg-wrap .hero-stats span {
+  display: inline-flex; align-items: baseline; gap: 7px;
+  border: 1px solid var(--line); border-radius: 8px;
+  padding: 8px 12px; background: var(--panel); color: var(--muted);
+}
+.sg-wrap .hero-stats strong { color: var(--accent-3); }
+.sg-wrap .filter-row { display: flex; flex-wrap: wrap; gap: 10px; max-width: 680px; margin: 24px 0; }
+.sg-wrap .filter-select { display: grid; flex: 1 1 220px; gap: 8px; max-width: 320px; color: var(--muted); font-weight: 700; }
+.sg-wrap .filter-select select {
+  width: 100%; height: 48px; border: 1px solid var(--line); border-radius: 8px;
+  padding: 0 14px; background: var(--panel); color: var(--ink); font: inherit; cursor: pointer;
+}
+.sg-wrap .filter-select select:focus { outline: 3px solid rgba(11,114,133,0.18); border-color: var(--accent); }
+.sg-wrap .hero h1 + .filter-row,
+.sg-wrap .hero h1 + .search-box { margin-top: 24px; }
+.sg-wrap .filter-row + .search-box { margin-top: 18px; }
+.sg-wrap .search-box { display: grid; gap: 8px; max-width: 560px; color: var(--muted); font-weight: 700; }
+.sg-wrap .search-box input {
+  width: 100%; height: 48px; border: 1px solid var(--line); border-radius: 8px;
+  padding: 0 14px; background: var(--panel); color: var(--ink); font: inherit;
+}
+.sg-wrap .search-box input:focus { outline: 3px solid rgba(11,114,133,0.18); border-color: var(--accent); }
+.sg-wrap .result-count { margin: 0 0 18px; color: var(--muted); font-weight: 700; }
+.sg-wrap .categories { display: grid; gap: 18px; padding-bottom: 72px; }
+.sg-wrap .portal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit,minmax(240px,1fr));
+  gap: 14px; padding-bottom: 72px;
+}
+.sg-wrap .category-section,
+.sg-wrap .detail-card {
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--panel); box-shadow: var(--shadow);
+}
+.sg-wrap .category-section { padding: clamp(16px,3vw,26px); }
+.sg-wrap .category-head {
+  display: flex; align-items: end; justify-content: space-between;
+  gap: 16px; margin-bottom: 14px;
+}
+.sg-wrap .category-head p { margin: 0 0 5px; color: var(--accent-2); font-size: 13px; font-weight: 800; }
+.sg-wrap .category-head h2 { font-size: clamp(22px,3vw,32px); }
+.sg-wrap .category-head > span { color: var(--muted); font-weight: 800; white-space: nowrap; }
+.sg-wrap .section-links { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.sg-wrap .course-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill,minmax(220px,1fr));
+  gap: 10px;
+}
+.sg-wrap .course-card,
+.sg-wrap .info-card,
+.sg-wrap .portal-card {
+  min-height: 116px; display: grid; align-content: start; gap: 8px;
+  border: 1px solid var(--line); border-radius: 8px; padding: 14px;
+  background: #fbfcfe;
+  transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+  cursor: pointer;
+}
+.sg-wrap .portal-card { min-height: 156px; align-content: center; }
+.sg-wrap .course-card:hover, .sg-wrap .course-card:focus-visible,
+.sg-wrap .info-card:hover, .sg-wrap .info-card:focus-visible,
+.sg-wrap .portal-card:hover, .sg-wrap .portal-card:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 12px 30px rgba(11,114,133,0.12);
+  transform: translateY(-1px); outline: none;
+}
+.sg-wrap .card-index { color: var(--accent-3); font-size: 12px; font-weight: 900; }
+.sg-wrap .course-card strong,
+.sg-wrap .info-card strong,
+.sg-wrap .portal-card strong { font-size: 18px; line-height: 1.3; word-break: keep-all; }
+.sg-wrap .portal-card strong { font-size: clamp(24px,3vw,34px); }
+.sg-wrap .card-meta { color: var(--muted); font-size: 13px; line-height: 1.4; }
+.sg-wrap .detail-shell { padding: 28px 0 72px; }
+.sg-wrap .detail-card { padding: clamp(18px,4vw,44px); overflow: visible; }
+.sg-wrap .detail-toolbar {
+  position: sticky; top: var(--sticky-detail-top); z-index: 8;
+  display: flex; align-items: center;
+  margin-bottom: 28px; padding: 0 0 18px;
+  background: linear-gradient(180deg,var(--panel) 0%,var(--panel) 76%,rgba(255,255,255,0));
+}
+.sg-wrap .back-link,
+.sg-wrap .section-link {
+  border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px;
+  background: var(--panel); color: var(--muted); font-size: 14px;
+  box-shadow: 0 8px 18px rgba(29,37,44,0.08);
+  display: inline-flex; align-items: center; justify-content: center;
+  line-height: 1.2; cursor: pointer;
+}
+.sg-wrap .back-link:hover, .sg-wrap .section-link:hover { border-color: var(--accent); color: var(--ink); }
+.sg-wrap .detail-card h1 { margin-top: 8px; font-size: clamp(16px,2.5vw,28px); word-break: keep-all; }
+.sg-wrap .detail-meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0; }
+.sg-wrap .detail-meta span {
+  border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px;
+  background: #fbfcfe; color: var(--muted); font-size: 13px; font-weight: 800;
+}
+.sg-wrap .pager { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 22px 0; }
+.sg-wrap .pager a {
+  border: 1px solid var(--line); border-radius: 8px; padding: 12px;
+  color: var(--muted); background: #fbfcfe; font-weight: 700; cursor: pointer;
+}
+.sg-wrap .pager a:last-child { text-align: right; }
+.sg-wrap .pager a:hover { border-color: var(--accent); color: var(--ink); }
+.sg-wrap .course-layout { display: grid; gap: 26px; }
+.sg-wrap .info-panel,
+.sg-wrap .quote-panel,
+.sg-wrap .content-section { border-top: 1px solid var(--line); padding-top: 22px; }
+.sg-wrap .info-panel h2,
+.sg-wrap .quote-panel h2,
+.sg-wrap .content-section h2 { margin: 0 0 14px; font-size: 22px; }
+.sg-wrap .info-table {
+  width: 100%; border-collapse: collapse; border: 1px solid var(--line);
+  border-radius: 8px; overflow: hidden; table-layout: fixed;
+}
+.sg-wrap .info-table th,
+.sg-wrap .info-table td {
+  border-bottom: 1px solid var(--line); padding: 12px 14px;
+  text-align: left; vertical-align: top;
+}
+.sg-wrap .info-table tr:last-child th,
+.sg-wrap .info-table tr:last-child td { border-bottom: 0; }
+.sg-wrap .info-table th {
+  width: 168px; background: #f3f7f9; color: var(--muted); font-weight: 800;
+}
+.sg-wrap .info-table td p,
+.sg-wrap .info-table td .content-list { margin-top: 0; margin-bottom: 0; }
+.sg-wrap .pill-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.sg-wrap .pill-link {
+  display: inline-flex; align-items: center;
+  border: 1px solid var(--line); border-radius: 999px;
+  padding: 7px 11px; background: #fbfcfe; color: var(--muted);
+  font-size: 14px; font-weight: 800; cursor: pointer;
+}
+.sg-wrap a.pill-link:hover,
+.sg-wrap a.pill-link:focus-visible { border-color: var(--accent); color: var(--ink); outline: none; }
+.sg-wrap .quote-panel blockquote {
+  margin: 0; border-left: 4px solid var(--accent);
+  padding: 8px 0 8px 18px; color: #24323b;
+  font-size: 20px; font-weight: 800; line-height: 1.7; word-break: keep-all;
+}
+.sg-wrap .section-stack { display: grid; gap: 20px; }
+.sg-wrap .section-body { display: grid; gap: 12px; }
+.sg-wrap .section-body h3 { margin: 10px 0 0; color: var(--accent); font-size: 17px; line-height: 1.45; }
+.sg-wrap .section-body h3:first-child { margin-top: 0; }
+.sg-wrap .section-body p { margin: 0; word-break: keep-all; overflow-wrap: anywhere; }
+.sg-wrap .content-list { display: grid; gap: 8px; margin: 0; padding-left: 22px; }
+.sg-wrap .content-list li { padding-left: 2px; }
+.sg-wrap .source-text {
+  margin: 22px 0 0; padding: clamp(16px,3vw,28px);
+  border: 1px solid var(--line); border-radius: 8px;
+  background: #fcfdff; color: var(--ink);
+  font: 16px/1.75 "Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere; overflow-x: auto;
+}
+.sg-wrap .source-attribution {
+  margin-top: 28px; border-top: 1px solid var(--line);
+  padding-top: 16px; color: var(--muted); font-size: 13px; line-height: 1.7;
+}
+.sg-wrap .source-attribution p { margin: 0 0 8px; }
+.sg-wrap .source-attribution p:last-child { margin-bottom: 0; }
+.sg-wrap .sg-loading { text-align: center; padding: 40px 0; color: var(--muted); }
+@media (max-width: 720px) {
+  .sg-wrap { --sticky-detail-top: 104px; }
+  .sg-wrap .category-head,
+  .sg-wrap .pager { grid-template-columns: 1fr; }
+  .sg-wrap .category-head { align-items: start; flex-direction: column; }
+  .sg-wrap .pager a:last-child { text-align: left; }
+  .sg-wrap .info-table { table-layout: auto; }
+  .sg-wrap .info-table th,
+  .sg-wrap .info-table td { display: block; width: 100%; }
+  .sg-wrap .info-table th { border-bottom: 0; padding-bottom: 4px; }
+  .sg-wrap .info-table td { padding-top: 4px; }
+}
+
+/* ── 마이페이지 탭 (2026-07 추가) ── */
+.mypage-wrap {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 20px 18px 48px;
+}
+.mypage-cards {
+  display: grid;
+  gap: 16px;
+}
+.mypage-field-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+@media (max-width: 560px) {
+  .mypage-field-row { grid-template-columns: 1fr; }
+}
+
+/* ── 참고 사이트 탭 ── */
+.links-wrap {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 20px 18px 48px;
+}
+.links-header { margin-bottom: 16px; }
+.links-header h2 { font-size: 1.1rem; font-weight: 900; color: var(--ink); margin-bottom: 4px; }
+.links-desc { font-size: 0.84rem; color: var(--muted); }
+
+/* 카테고리 필터 */
+.links-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+.links-filter-btn {
+  min-height: 32px;
+  padding: 6px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.links-filter-btn:hover { border-color: var(--primary); color: var(--primary); }
+.links-filter-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+/* 카테고리 섹션 */
+.links-section { margin-bottom: 28px; }
+.links-section-title {
+  font-size: 0.88rem;
+  font-weight: 900;
+  color: var(--ink);
+  padding: 8px 0;
+  margin-bottom: 10px;
+  border-bottom: 2px solid var(--primary-soft);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.links-section-count {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--bg);
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+
+/* 링크 카드 그리드 */
+.links-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+.link-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  text-decoration: none;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+.link-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 2px 12px rgba(17,97,73,0.1);
+  transform: translateY(-1px);
+}
+.link-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.link-card-name {
+  font-size: 0.9rem;
+  font-weight: 900;
+  color: var(--ink);
+  line-height: 1.3;
+}
+.link-card-arrow {
+  color: var(--primary);
+  font-size: 1rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.link-card-url {
+  font-size: 0.74rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.link-card-desc {
+  font-size: 0.81rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.link-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+.link-tag {
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+/* 빈 상태 */
+.links-empty {
+  text-align: center;
+  padding: 48px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+</style>
+</head>
+<body>
+
+<!-- ① 세션 확인 중 오버레이 (auth.js가 세션 확인 후 숨김) -->
+<div id="authCheck" aria-label="로그인 상태 확인 중">
+  <div class="auth-spinner"></div>
+</div>
+
+<!-- ② 로그인 화면 -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3zM5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/>
+      </svg>
+    </div>
+    <h1>교육과정 탐색</h1>
+    <p>아이디와 비밀번호로 로그인하세요</p>
+
+    <div class="login-error" id="loginError"></div>
+
+    <!-- Google 로그인: 최초 관리자로 Google 계정을 등록한 경우, 재로그인 시에도 사용할 수 있도록 노출 -->
+    <div id="googleLoginBtn"></div>
+    <div class="admin-setup-divider"><span>또는</span></div>
+
+    <!-- 아이디/비밀번호 로그인 (교사·학생 공용) -->
+    <div id="emailLoginSection" class="email-login-section">
+      <div class="modal-field">
+        <label for="emailLoginInput">아이디</label>
+        <input id="emailLoginInput" type="text" placeholder="아이디" autocomplete="username">
+      </div>
+      <div class="modal-field">
+        <label for="passwordLoginInput">비밀번호</label>
+        <input id="passwordLoginInput" type="password" placeholder="비밀번호" autocomplete="current-password">
+      </div>
+      <button class="modal-btn modal-btn-submit" id="emailLoginSubmitBtn" type="button" style="width:100%">로그인</button>
+    </div>
+
+    <button class="login-teacher-link" id="openTeacherRequestBtn" type="button">
+      처음이신가요? 회원가입 →
+    </button>
+
+    <button class="login-guest-link" id="guestLoginBtn" type="button">
+      비회원으로 둘러보기
+    </button>
+  </div>
+</div>
+
+<!-- 최초 관리자 등록 화면 (admins 테이블이 비어 있을 때만 표시) -->
+<div id="adminSetupScreen">
+  <div class="login-card">
+    <div class="login-logo">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3zM5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/>
+      </svg>
+    </div>
+    <h1>최초 관리자 등록</h1>
+    <p>이 프로그램을 처음 사용합니다. 관리자 계정을 등록해 주세요.</p>
+
+    <div class="login-error" id="asError"></div>
+
+    <div class="modal-field">
+      <label for="asName">이름 <span class="req">*</span></label>
+      <input id="asName" type="text" placeholder="홍길동" autocomplete="name">
+    </div>
+    <div class="modal-field">
+      <label for="asEmail">아이디 <span class="req">*</span></label>
+      <input id="asEmail" type="text" placeholder="아이디" autocomplete="username">
+    </div>
+    <div class="modal-field">
+      <label for="asPassword">비밀번호 <span class="req">*</span></label>
+      <input id="asPassword" type="password" placeholder="6자 이상" autocomplete="new-password">
+    </div>
+    <div class="modal-field">
+      <label for="asPasswordConfirm">비밀번호 확인 <span class="req">*</span></label>
+      <input id="asPasswordConfirm" type="password" placeholder="비밀번호 재입력" autocomplete="new-password">
+    </div>
+
+    <div class="modal-field as-domain-field">
+      <label for="asSchoolDomain">학교 도메인 <span class="req">*</span></label>
+      <div id="asSchoolDomainWrap">
+        <input id="asSchoolDomain" type="text" placeholder="예: jjg.hs.kr">
+        <p class="as-domain-hint">학교가 실제로 소유한 도메인을 입력하세요(DNS가 존재해야 함). 이후 교사·학생이 아이디를 입력해 가입하면 내부적으로 "아이디.접미사@이 도메인" 계정으로 등록됩니다. 실제 이메일 수신은 필요하지 않습니다. 등록 후 변경하려면 관리자 설정 또는 Supabase의 app_settings 값을 수정하세요.</p>
+      </div>
+    </div>
+    <div class="modal-field as-domain-field">
+      <label for="asGoogleDomain">Google 계정 도메인 <span class="req">*</span></label>
+      <input id="asGoogleDomain" type="text" placeholder="예: jjg.hs.kr">
+      <p class="as-domain-hint">교사·학생이 Google 계정으로 회원가입할 때 허용할 학교 Google Workspace 도메인입니다.</p>
+    </div>
+
+    <button class="modal-btn modal-btn-submit" id="asSubmitBtn" type="button" style="width:100%">관리자로 등록</button>
+
+    <div class="admin-setup-divider"><span>또는</span></div>
+
+    <div id="asGoogleBtn" style="display:flex;justify-content:center"></div>
+  </div>
+</div>
+
+<!-- 회원가입 모달 (교사/학생 공용) -->
+<div class="modal-overlay" id="teacherRequestModal" role="dialog" aria-modal="true" aria-labelledby="teacherModalTitle">
+  <div class="modal-card">
+    <h2 id="teacherModalTitle">회원가입</h2>
+    <p class="modal-desc">신청 후 관리자 승인이 완료되면 로그인할 수 있습니다.</p>
+
+    <div class="su-role-tabs">
+      <button class="su-role-tab active" id="suRoleTeacherBtn" type="button" data-role="teacher">교사</button>
+      <button class="su-role-tab" id="suRoleStudentBtn" type="button" data-role="student">학생</button>
+    </div>
+
+    <!-- 학교 도메인 안내 (auth.js가 동적으로 노출/문구 채움) -->
+    <div id="suDomainBanner" class="su-domain-banner" style="display:none">
+      <span id="suDomainBannerText"></span>
+    </div>
+
+    <!-- ── 공통: 아이디/비밀번호 ── -->
+    <div class="modal-field">
+      <label for="trEmail">아이디 <span class="req">*</span></label>
+      <div class="tr-inline-row">
+        <input id="trEmail" type="text" placeholder="아이디" autocomplete="username">
+        <button id="trCheckDupBtn" class="tr-action-btn" type="button">중복 확인</button>
+      </div>
+      <span class="tr-dup-msg" id="trDupMsg"></span>
+    </div>
+
+    <div class="modal-field">
+      <label for="trPassword">비밀번호 <span class="req">*</span></label>
+      <input id="trPassword" type="password" placeholder="6자 이상" autocomplete="new-password">
+    </div>
+    <div class="modal-field">
+      <label for="trPasswordConfirm">비밀번호 확인 <span class="req">*</span></label>
+      <input id="trPasswordConfirm" type="password" placeholder="비밀번호 재입력" autocomplete="new-password">
+    </div>
+
+    <!-- ── 교사 전용 필드 ── -->
+    <div class="su-role-section active" id="suTeacherSection">
+      <div class="modal-field">
+        <label for="trName">이름 <span class="req">*</span></label>
+        <input id="trName" type="text" placeholder="홍길동" autocomplete="name">
+      </div>
+
+      <p class="modal-section-label" style="margin-top:14px">선택 정보</p>
+
+      <div class="modal-field">
+        <label for="trSubjectArea">담당 교과</label>
+        <select id="trSubjectArea">
+          <option value="">선택 (선택사항)</option>
+          <option value="korean">국어</option>
+          <option value="math">수학</option>
+          <option value="english">영어</option>
+          <option value="social">사회</option>
+          <option value="science">과학</option>
+          <option value="info">정보</option>
+          <option value="home">기술·가정</option>
+          <option value="language">제2외국어</option>
+          <option value="arts">예술·체육</option>
+          <option value="liberal">교양</option>
+        </select>
+      </div>
+
+      <div class="modal-field">
+        <label>담임 학급 (선택)</label>
+        <div class="tr-inline-row tr-homeroom-row">
+          <select id="trHomeroomGrade" style="flex:0 0 90px">
+            <option value="">학년</option>
+            <option value="1">1학년</option>
+            <option value="2">2학년</option>
+            <option value="3">3학년</option>
+          </select>
+          <input id="trHomeroomClass" type="number" min="1" max="20" placeholder="반 번호" style="flex:1;min-width:80px">
+          <span style="align-self:center;color:var(--muted);font-size:0.9rem">반</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 학생 전용 필드 ── -->
+    <div class="su-role-section" id="suStudentSection">
+      <div class="sp-grid">
+        <div class="modal-field">
+          <label for="srGrade">학년 <span class="req">*</span></label>
+          <select id="srGrade">
+            <option value="">선택</option>
+            <option value="1">1학년</option>
+            <option value="2">2학년</option>
+            <option value="3">3학년</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label for="srClass">반 <span class="req">*</span></label>
+          <input id="srClass" type="number" min="1" max="20" placeholder="예: 3">
+        </div>
+        <div class="modal-field">
+          <label for="srNumber">번호 <span class="req">*</span></label>
+          <input id="srNumber" type="number" min="1" max="50" placeholder="예: 15">
+        </div>
+        <div class="modal-field sp-name-field">
+          <label for="srName">이름 <span class="req">*</span></label>
+          <input id="srName" type="text" placeholder="홍길동" autocomplete="name">
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-msg" id="trMsg"></div>
+    <div class="tr-google-alt">
+      <span>학교 Google 계정이 있나요?</span>
+      <button class="tr-google-link" id="googleSignupBtn" type="button">Google 계정으로 신청</button>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-cancel" id="closeTeacherRequestBtn" type="button">취소</button>
+      <button class="modal-btn modal-btn-submit" id="submitTeacherRequestBtn" type="button">신청하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 학생 프로필 입력 모달 (최초 로그인 시) -->
+<div class="modal-overlay" id="studentProfileModal" role="dialog" aria-modal="true">
+  <div class="modal-card">
+    <h2>내 정보 입력</h2>
+    <p class="modal-desc">처음 로그인하셨습니다. 학년·반·번호·이름을 입력해 주세요.</p>
+    <div class="sp-grid">
+      <div class="modal-field">
+        <label for="spGrade">학년 <span class="req">*</span></label>
+        <select id="spGrade">
+          <option value="">선택</option>
+          <option value="1">1학년</option>
+          <option value="2">2학년</option>
+          <option value="3">3학년</option>
+        </select>
+      </div>
+      <div class="modal-field">
+        <label for="spClass">반 <span class="req">*</span></label>
+        <input id="spClass" type="number" min="1" max="20" placeholder="예: 3">
+      </div>
+      <div class="modal-field">
+        <label for="spNumber">번호 <span class="req">*</span></label>
+        <input id="spNumber" type="number" min="1" max="50" placeholder="예: 15">
+      </div>
+      <div class="modal-field sp-name-field">
+        <label for="spName">이름 <span class="req">*</span></label>
+        <input id="spName" type="text" placeholder="홍길동" autocomplete="name">
+      </div>
+    </div>
+    <div class="modal-msg" id="spError"></div>
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-submit" id="spSubmitBtn" type="button">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- ③ 앱 메인 화면 -->
+<div id="appScreen">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="topbar-left">
+        <div>
+          <div class="eyebrow">Curriculum Navigator</div>
+          <h1>교육과정 분석 및 대학 추천 과목 탐색</h1>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <a class="portal-link-btn" id="portalUrlBtn" href="#" target="_blank" rel="noopener" hidden>수강신청 바로가기</a>
+        <div class="user-info">
+          <span class="user-name" id="userName"></span>
+          <button class="logout-btn" id="logoutBtn">로그아웃</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- 로딩 중 -->
+  <div id="loadingScreen">
+    <div class="spinner"></div>
+    <div class="loading-text">데이터를 불러오는 중...</div>
+  </div>
+
+  <!-- 탭 네비게이션 -->
+  <nav class="tab-nav tab-nav-hidden" id="tabNav">
+    <button class="tab-btn" data-tab="majorSeries" type="button">계열(학과)-과목 탐색</button>
+    <button class="tab-btn active" data-tab="explore" type="button">교육과정-반영과목</button>
+    <button class="tab-btn" data-tab="select" type="button">과목 선택하기</button>
+    <button class="tab-btn" data-tab="links" type="button">참고</button>
+    <button class="tab-btn" data-tab="myplan" type="button">내 교육과정 보기</button>
+    <button class="tab-btn" data-tab="teacher" type="button" hidden>과목 선택 현황(통계)</button>
+    <button class="tab-btn" data-tab="admin" type="button" hidden>관리자</button>
+    <button class="tab-btn" data-tab="mypage" type="button" hidden>마이페이지</button>
+  </nav>
+
+  <!-- ── 탐색 탭 ── -->
+  <div class="tab-panel active" id="tabExplore">
+    <div class="controls controls-hidden" id="controlsBar">
+      <div class="controls-inner">
+        <button class="toggle-btn filter-toggle-btn" id="filtersToggleBtn" type="button"
+          aria-expanded="true" aria-controls="controlsFilterBody">필터 접기</button>
+        <div class="controls-filter-body" id="controlsFilterBody">
+          <!-- 대학 반영과목 비교 표의 헤더 드롭다운 필터(대학/계열/학과)와 같은 filterState를
+               공유하는 상단 미러 — 둘 중 어디서 선택해도 항상 동기화됨. 학년(입학년도) 선택과
+               검색창도 같은 줄에 배치해 모든 필터가 한 줄에 보이도록 함. -->
+          <div class="filter-groups compare-mode" id="compareFilterGroups" aria-label="학년, 검색, 대학, 계열, 학과 필터" hidden>
+            <label class="search-box" id="cohortGradeBox" hidden>
+              <span style="white-space:nowrap;font-size:13px;color:var(--text-secondary,#666);">학년(입학년도)</span>
+              <select id="cohortGradeSelect">
+                <option value="1">1학년</option>
+                <option value="2">2학년</option>
+                <option value="3">3학년</option>
+              </select>
+            </label>
+            <div class="search-box">
+              <input id="searchInput" type="search" placeholder="과목, 대학, 권역, 계열, 학과, 키워드 검색">
+            </div>
+            <details class="multi-filter">
+              <summary>
+                <span class="multi-filter-label">대학명</span>
+                <span class="filter-summary" id="topUniversitySummary">전체</span>
+              </summary>
+              <div class="multi-filter-options" id="topUniversityOptions"></div>
+            </details>
+            <details class="multi-filter">
+              <summary>
+                <span class="multi-filter-label">계열</span>
+                <span class="filter-summary" id="topSeriesSummary">전체</span>
+              </summary>
+              <div class="multi-filter-options" id="topSeriesOptions"></div>
+            </details>
+            <details class="multi-filter">
+              <summary>
+                <span class="multi-filter-label">학과</span>
+                <span class="filter-summary" id="topDepartmentSummary">전체</span>
+              </summary>
+              <div class="multi-filter-options" id="topDepartmentOptions"></div>
+            </details>
+          </div>
+          <select class="sort-select" id="sortSelect" aria-label="정렬">
+            <option value="core">핵심 과목 많은순</option>
+            <option value="match">개설 일치순</option>
+            <option value="example">예시 보기</option>
+          </select>
+          <button class="filter-reset-btn" id="resetFiltersBtn" type="button">필터 초기화</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="mainContent">
+      <main class="container">
+        <section class="sticky-semesters semester-section" id="semesterPanel" aria-labelledby="semesterTitle">
+          <div class="section-head">
+            <div class="title-inline">
+              <h2 id="semesterTitle">학기별 과목 리스트</h2>
+              <button class="toggle-btn" id="semesterToggle" type="button" aria-expanded="true">접기</button>
+            </div>
+            <div class="section-actions">
+              <div class="semester-filter-btns" id="semesterFilterButtons" aria-label="교과(군) 필터"></div>
+            </div>
+          </div>
+          <div class="semester-grid" id="semesterGrid"></div>
+        </section>
+
+        <section aria-labelledby="recommendTitle">
+          <div class="section-head">
+            <div class="title-inline">
+              <h2 id="recommendTitle">권역·계열·학과별 대학 반영과목 비교</h2>
+            </div>
+            <div class="section-actions">
+              <div class="recommend-subview-toggle" id="recommendSubViewToggle">
+                <button type="button" class="recommend-subview-btn active" data-subview="compare">대학 반영과목 비교 표</button>
+                <button type="button" class="recommend-subview-btn" data-subview="matrix">계열별 대표 모집단위 반영과목 표</button>
+              </div>
+              <div class="stats-bar" id="recommendStats"></div>
+            </div>
+          </div>
+          <div class="recommend-grid" id="recommendGrid"></div>
+        </section>
+      </main>
+
+      <footer class="footer" id="recommendFooter">
+        추천 과목 데이터는 2028학년도 계열별 대표 모집단위별 반영과목 엑셀 자료를 기준으로 변환했습니다.
+        실제 상담 자료로 사용할 때는 각 대학의 최신 모집요강과 전공 안내 자료로 최종 확인하세요.
+      </footer>
+    </div>
+  </div>
+
+  <!-- ── 교사용 탭 ── -->
+  <div class="tab-panel" id="tabTeacher" hidden>
+    <div id="teacherContent">
+      <div class="teacher-wrap">
+        <div class="teacher-empty">교사용 선택 현황을 불러오는 중입니다.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 관리자 탭 ── -->
+  <div class="tab-panel" id="tabAdmin" hidden>
+    <div class="admin-subnav" id="adminSubnav">
+      <button class="admin-subnav-btn active" data-adminview="selection" type="button">선택 현황</button>
+      <button class="admin-subnav-btn" data-adminview="members" type="button">회원 관리</button>
+      <button class="admin-subnav-btn" data-adminview="data" type="button">데이터 관리</button>
+    </div>
+    <div id="adminContent">
+      <div class="teacher-wrap">
+        <div class="teacher-empty">관리자 데이터를 불러오는 중입니다.</div>
+      </div>
+    </div>
+    <div id="adminMembersContent" hidden>
+      <div class="teacher-wrap">
+        <div class="teacher-empty">회원 데이터를 불러오는 중입니다.</div>
+      </div>
+    </div>
+    <div id="adminDataContent" hidden>
+      <div class="teacher-wrap">
+        <div class="teacher-empty">데이터 관리 화면을 불러오는 중입니다.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tabMajorSeries">
+    <!-- 서브 네비게이션 -->
+    <div class="ms-subnav" id="msSubnav">
+      <button class="ms-subnav-btn active" data-sgview="series" type="button">전공 계열</button>
+      <button class="ms-subnav-btn" data-sgview="track" type="button">계열 정보</button>
+      <button class="ms-subnav-btn" data-sgview="department" type="button">학과 정보</button>
+      <button class="ms-subnav-btn" data-sgview="subject" type="button">교과 정보</button>
+    </div>
+    <!-- 전공 계열 뷰 (기존 major-series-tab.html) -->
+    <div class="ms-view" id="msViewSeries">
+      <div id="majorSeriesContent">
+        <div class="major-series-wrap">
+          <div class="empty">전공 계열과 주요 학과 정보를 불러오는 중입니다.</div>
+        </div>
+      </div>
+    </div>
+    <!-- 2022SubjectGuide 뷰 (계열/학과/교과 정보) -->
+    <div class="ms-view sg-wrap" id="msViewSg" hidden>
+      <div id="sgContent">
+        <div class="home-shell"><div class="sg-loading">불러오는 중...</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 참고 사이트 탭 ── -->
+  <div class="tab-panel" id="tabLinks">
+    <div class="links-wrap">
+      <div class="links-header">
+        <h2>참고 사이트</h2>
+        <p class="links-desc">대학 입학처, 과목 선택, 진로 탐색에 도움이 되는 사이트 목록입니다.</p>
+      </div>
+      <div class="links-filter-bar" id="linksFilterBar"></div>
+      <div id="linksContent"></div>
+    </div>
+  </div>
+
+  <!-- ── 마이페이지 탭 (교사·학생 전용, 2026-07 추가) ── -->
+  <div class="tab-panel" id="tabMypage" hidden>
+    <div id="myPageContent">
+      <div class="mypage-wrap">
+        <div class="links-header"><h2>마이페이지</h2></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 내 교육과정 / 개별 교육과정 탭 ── -->
+  <div class="tab-panel" id="tabMyplan">
+    <div class="myplan-layout">
+
+      <!-- 교사·관리자 전용: 학생 선택기 (왼쪽 패널) -->
+      <div id="myplanStudentPicker" class="myplan-sidebar" style="display:none">
+        <div class="mpicker-bar">
+          <label class="mpicker-field">
+            <span class="mpicker-label">학년</span>
+            <select id="pickerGrade">
+              <option value="">-</option>
+              <option value="1">1학년</option>
+              <option value="2">2학년</option>
+              <option value="3">3학년</option>
+            </select>
+          </label>
+          <label class="mpicker-field">
+            <span class="mpicker-label">반</span>
+            <input id="pickerClass" type="number" min="1" max="20" placeholder="-">
+          </label>
+          <label class="mpicker-field">
+            <span class="mpicker-label">번호</span>
+            <input id="pickerNumber" type="number" min="1" max="60" placeholder="-">
+          </label>
+          <label class="mpicker-field">
+            <span class="mpicker-label">이름</span>
+            <input id="pickerName" type="text" placeholder="-">
+          </label>
+          <button id="pickerSearchBtn" class="mpicker-search-btn" type="button">검색</button>
+        </div>
+        <div id="pickerResult" class="mpicker-result"></div>
+      </div>
+
+      <div class="myplan-wrap">
+        <div class="myplan-header">
+          <h2 id="myplanTitle">내 교육과정 흐름</h2>
+          <p class="myplan-desc" id="myplanDesc">선택한 과목을 교과군별·학기별로 정리한 수형도입니다.</p>
+        </div>
+        <div id="myplanContent"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 선택 탭 ── -->
+  <div class="tab-panel" id="tabSelect">
+    <div class="selection-layout">
+
+      <!-- 사이드바 -->
+      <aside class="selection-sidebar">
+        <div class="sel-card">
+          <button class="save-btn" id="saveSelectionBtn" disabled>저장</button>
+          <div class="save-status" id="saveStatus"></div>
+        </div>
+
+        <div class="sel-card">
+          <div class="sel-card-title">선택 현황</div>
+          <div class="summary-stat">
+            <span class="summary-stat-label">선택 과목 수</span>
+            <span class="summary-stat-value" id="statTotalCount">0</span>
+          </div>
+          <div class="summary-stat">
+            <span class="summary-stat-label">총 학점</span>
+            <span class="summary-stat-value" id="statTotalCredit">0</span>
+          </div>
+          <div class="summary-stat">
+            <span class="summary-stat-label">핵심과목 충족</span>
+            <span class="summary-stat-value" id="statCoreMatch">-</span>
+          </div>
+        </div>
+
+        <div class="sel-card" id="verifyCard">
+          <div class="sel-card-title">검증</div>
+          <div class="verify-item">
+            <span class="verify-icon pending" id="verifyBasicCreditIcon">–</span>
+            <span class="verify-label">기초교과 이수학점</span>
+            <span class="verify-detail" id="verifyBasicCreditDetail"></span>
+          </div>
+        </div>
+
+        <!-- 진로 설정 카드(2026-08: 반영과목 팝업 분리 이전의 원래 위치인 검증 카드
+             아래로 복귀) -->
+        <div class="sel-card">
+          <div class="sel-card-title">진로 설정</div>
+          <!-- 교육과정-반영과목 탭의 비교 표 헤더 드롭다운(대학명/계열/학과)과 동일한
+               다중 선택 방식. 체크박스 상태는 src/components/selectionView.js의
+               careerFilterState가 관리한다. -->
+          <div class="career-filter-stack" id="careerFilterStack">
+            <details class="multi-filter">
+              <summary>
+                <span class="multi-filter-label">대학명</span>
+                <span class="filter-summary" id="careerUniversitySummary">전체</span>
+              </summary>
+              <div class="multi-filter-options" id="careerUniversityOptions"></div>
+            </details>
+            <details class="multi-filter">
+              <summary>
+                <span class="multi-filter-label">계열</span>
+                <span class="filter-summary" id="careerSeriesSummary">전체</span>
+              </summary>
+              <div class="multi-filter-options" id="careerSeriesOptions"></div>
+            </details>
+            <details class="multi-filter">
+              <summary>
+                <span class="multi-filter-label">학과</span>
+                <span class="filter-summary" id="careerDepartmentSummary">전체</span>
+              </summary>
+              <div class="multi-filter-options" id="careerDepartmentOptions"></div>
+            </details>
+          </div>
+        </div>
+        <!-- 반영과목 팝업 축소 버튼 — 축소 상태에서는 진로 설정 카드 바로 아래에 고정된다. -->
+        <button class="career-analysis-btn" id="openAnalysisBtn" type="button" disabled aria-controls="analysisCard" aria-expanded="false">반영과목 팝업 열기</button>
+      </aside>
+
+      <!-- 과목 선택 그리드 -->
+      <div>
+        <div class="sel-semester-grid" id="selSemesterGrid"></div>
+      </div>
+    </div>
+
+    <!-- 반영과목 팝업(구 "진로 매칭 분석") — 2026-08: 사이드바 카드에서 드래그로 이동
+         가능한 플로팅 패널로 전환. 헤더(analysisFloatHeader)를 잡고 끌면 화면 어디로든
+         옮길 수 있어, 과목 선택 그리드를 보면서 나란히 띄워 둘 수 있다.
+         selectionView.js의 updateAnalysis()가 목록 내용을, bindSelectionEvents()의
+         드래그 핸들러가 이동을, CSS resize(우측 하단 모서리)가 크기 조절을 담당한다
+         (2026-08 추가). -->
+    <div class="reflected-float-panel analysis-hidden" id="analysisCard">
+      <div class="reflected-float-header" id="analysisFloatHeader">
+        <span class="reflected-float-title">반영과목</span>
+        <button class="reflected-float-close" id="analysisCloseBtn" type="button" aria-label="버튼으로 축소">×</button>
+      </div>
+      <div class="reflected-float-body">
+        <!-- 진로 설정에서 검출된 대학·계열·학과별 "대학|계열|학과 / 반영과목 / 비고" 약식
+             목록. 패널 자체는 resize로 커질 수 있고, 그 안에서 목록이 넘치면
+             reflected-float-body가 스크롤을 담당한다. -->
+        <div class="univ-rank-list" id="univRankList"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+window.addEventListener('error', (event) => {
+  const target = event.target;
+  const isScriptError = target && target.tagName === 'SCRIPT';
+  const message = isScriptError
+    ? `앱 파일을 불러오지 못했습니다: ${target.src || '알 수 없는 스크립트'}`
+    : (event.message || '알 수 없는 오류가 발생했습니다.');
+  const detail = [
+    event.filename ? `파일: ${event.filename}` : '',
+    event.lineno ? `위치: ${event.lineno}:${event.colno || 0}` : '',
+  ].filter(Boolean).join('<br>');
+  const loading = document.getElementById('loadingScreen');
+  if (!loading) return;
+  const authChecking = document.getElementById('authCheck')?.style.display !== 'none';
+  if (!isScriptError && !loading.classList.contains('visible') && !authChecking) return;
+  document.getElementById('appScreen')?.classList.add('visible');
+  document.getElementById('loginScreen')?.style.setProperty('display', 'none');
+  document.getElementById('adminSetupScreen')?.style.setProperty('display', 'none');
+  loading.innerHTML = `
+    <div style="text-align:center;padding:32px;max-width:620px;">
+      <div style="color:#d14a3a;font-weight:800;margin-bottom:8px;">앱 초기화 실패</div>
+      <div style="color:#667085;font-size:0.85rem;line-height:1.6;">${message}</div>
+      ${detail ? `<div style="color:#667085;font-size:0.78rem;line-height:1.6;margin-top:8px;">${detail}</div>` : ''}
+      <div style="color:#667085;font-size:0.78rem;line-height:1.6;margin-top:8px;">
+        배포 환경에서 src/config.js가 생성되었는지, Supabase 환경 변수가 설정되었는지 확인해 주세요.
+      </div>
+      <button onclick="location.reload()"
+        style="margin-top:16px;padding:8px 16px;border:1.5px solid #d9dee8;border-radius:8px;background:#fff;cursor:pointer;font-weight:700;">
+        새로고침
+      </button>
+    </div>
+  `;
+  loading.classList.add('visible');
+  document.getElementById('authCheck')?.style.setProperty('display', 'none');
+});
+window.addEventListener('unhandledrejection', (event) => {
+  const loading = document.getElementById('loadingScreen');
+  if (!loading) return;
+  const authChecking = document.getElementById('authCheck')?.style.display !== 'none';
+  if (!loading.classList.contains('visible') && !authChecking) return;
+  document.getElementById('appScreen')?.classList.add('visible');
+  document.getElementById('loginScreen')?.style.setProperty('display', 'none');
+  document.getElementById('adminSetupScreen')?.style.setProperty('display', 'none');
+  const message = event.reason?.message || String(event.reason || '알 수 없는 오류가 발생했습니다.');
+  loading.innerHTML = `
+    <div style="text-align:center;padding:32px;max-width:620px;">
+      <div style="color:#d14a3a;font-weight:800;margin-bottom:8px;">앱 초기화 실패</div>
+      <div style="color:#667085;font-size:0.85rem;line-height:1.6;">${message}</div>
+      <button onclick="location.reload()"
+        style="margin-top:16px;padding:8px 16px;border:1.5px solid #d9dee8;border-radius:8px;background:#fff;cursor:pointer;font-weight:700;">
+        새로고침
+      </button>
+    </div>
+  `;
+  loading.classList.add('visible');
+  document.getElementById('authCheck')?.style.setProperty('display', 'none');
+});
+</script>
+<script type="module">
+import './src/app.js?v=2026081502';
+</script>
+</body>
+</html>
